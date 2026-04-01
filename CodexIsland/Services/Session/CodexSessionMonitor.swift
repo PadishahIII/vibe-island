@@ -31,6 +31,8 @@ class CodexSessionMonitor: ObservableObject {
     // MARK: - Monitoring Lifecycle
 
     func startMonitoring() {
+        OpencodeSessionScanner.shared.start()
+
         HookSocketServer.shared.start(
             onEvent: { event in
                 Task {
@@ -71,6 +73,7 @@ class CodexSessionMonitor: ObservableObject {
     }
 
     func stopMonitoring() {
+        OpencodeSessionScanner.shared.stop()
         HookSocketServer.shared.stop()
     }
 

@@ -54,6 +54,9 @@ actor SessionStore {
         case .hookReceived(let hookEvent):
             await processHookEvent(hookEvent)
 
+        case .sessionDiscovered(let session):
+            await processDiscoveredSession(session)
+
         case .permissionApproved(let sessionId, let toolUseId):
             await processPermissionApproved(sessionId: sessionId, toolUseId: toolUseId)
 
@@ -167,6 +170,49 @@ actor SessionStore {
         publishState()
 
         if event.shouldSyncFile {
+            scheduleFileSync(sessionId: sessionId)
+        }
+    }
+
+    private func processDiscoveredSession(_ event: DiscoveredSession) async {
+        let sessionId = event.sessionId
+        let isNewSession = sessions[sessionId] == nil
+
+        var session = sessions[sessionId] ?? SessionState(
+            sessionId: sessionId,
+            provider: event.provider,
+            cwd: event.cwd,
+            projectName: URL(fileURLWithPath: event.cwd).lastPathComponent,
+            transcriptPath: event.transcriptPath,
+            pid: event.pid,
+            tty: event.tty,
+            terminalName: event.terminalName,
+            isInTmux: event.isInTmux,
+            phase: event.phase,
+            lastActivity: event.lastActivity,
+            createdAt: event.lastActivity
+        )
+
+        if isNewSession {
+            Mixpanel.mainInstance().track(event: "Session Started")
+        }
+
+        session.transcriptPath = event.transcriptPath ?? session.transcriptPath
+        session.pid = event.pid
+        session.tty = event.tty ?? session.tty
+        session.terminalName = event.terminalName ?? session.terminalName
+        session.isInTmux = event.isInTmux
+        session.lastActivity = event.lastActivity
+
+        if isNewSession || session.phase.canTransition(to: event.phase) {
+            session.phase = event.phase
+        }
+
+        sessions[sessionId] = session
+
+        if isNewSession {
+            await loadHistoryFromFile(sessionId: sessionId, cwd: event.cwd)
+        } else {
             scheduleFileSync(sessionId: sessionId)
         }
     }
@@ -659,10 +705,18 @@ actor SessionStore {
                 session.subagentState.agentDescriptions[taskResult.agentId] = description
             }
 
-            let subagentToolInfos = await ConversationParser.shared.parseSubagentTools(
-                agentId: taskResult.agentId,
-                cwd: cwd
-            )
+            let subagentToolInfos: [SubagentToolInfo]
+            switch session.provider {
+            case .opencode:
+                subagentToolInfos = await OpencodeConversationParser.shared.parseSubagentTools(
+                    sessionId: taskResult.agentId
+                )
+            case .claude, .codex:
+                subagentToolInfos = await ConversationParser.shared.parseSubagentTools(
+                    agentId: taskResult.agentId,
+                    cwd: cwd
+                )
+            }
 
             guard !subagentToolInfos.isEmpty else { continue }
 

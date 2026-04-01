@@ -16,6 +16,9 @@ enum SessionEvent: Sendable {
     /// A hook event was received from Claude Code
     case hookReceived(HookEvent)
 
+    /// A session was discovered through local process/database inspection
+    case sessionDiscovered(DiscoveredSession)
+
     // MARK: - Permission Events (user actions)
 
     /// User approved a permission request
@@ -89,6 +92,19 @@ struct FileUpdatePayload: Sendable {
     let completedToolIds: Set<String>
     let toolResults: [String: ConversationParser.ToolResult]
     let structuredResults: [String: ToolResultData]
+}
+
+struct DiscoveredSession: Sendable {
+    let sessionId: String
+    let provider: SessionProvider
+    let cwd: String
+    let transcriptPath: String?
+    let pid: Int?
+    let tty: String?
+    let terminalName: String?
+    let isInTmux: Bool
+    let phase: SessionPhase
+    let lastActivity: Date
 }
 
 /// Result of a tool completion detected from JSONL
@@ -185,6 +201,8 @@ extension SessionEvent: CustomStringConvertible {
         switch self {
         case .hookReceived(let event):
             return "hookReceived(\(event.event), session: \(event.sessionId.prefix(8)))"
+        case .sessionDiscovered(let session):
+            return "sessionDiscovered(\(session.provider.rawValue), session: \(session.sessionId.prefix(8)))"
         case .permissionApproved(let sessionId, let toolUseId):
             return "permissionApproved(session: \(sessionId.prefix(8)), tool: \(toolUseId.prefix(12)))"
         case .permissionDenied(let sessionId, let toolUseId, _):

@@ -358,9 +358,16 @@ struct ChatView: View {
         session.isInTmux && session.tty != nil
     }
 
+    private var inputPlaceholder: String {
+        if canSendMessages {
+            return "Message \(session.provider.displayName)..."
+        }
+        return "Open this session in tmux to enable messaging"
+    }
+
     private var inputBar: some View {
         HStack(spacing: 10) {
-            TextField(canSendMessages ? "Message Codex..." : "Open Codex in tmux to enable messaging", text: $inputText)
+            TextField(inputPlaceholder, text: $inputText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
                 .foregroundColor(canSendMessages ? .white : .white.opacity(0.4))

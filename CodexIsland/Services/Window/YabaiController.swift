@@ -120,7 +120,10 @@ actor YabaiController {
                 for (pid, info) in tree {
                     let isChild = ProcessTreeBuilder.shared.isDescendant(targetPid: pid, ofAncestor: panePid, tree: tree)
                     let lowercasedCommand = info.command.lowercased()
-                    let isCodingAgent = lowercasedCommand.contains("claude") || lowercasedCommand.contains("codex")
+                    let isCodingAgent =
+                        lowercasedCommand.contains("claude") ||
+                        lowercasedCommand.contains("codex") ||
+                        lowercasedCommand.contains("opencode")
 
                     guard isChild, isCodingAgent else { continue }
 

@@ -19,6 +19,8 @@ actor SessionTranscriptParser {
                 sessionId: session.sessionId,
                 transcriptPath: session.transcriptPath
             )
+        case .opencode:
+            return await OpencodeConversationParser.shared.parse(sessionId: session.sessionId)
         }
     }
 
@@ -34,6 +36,8 @@ actor SessionTranscriptParser {
                 sessionId: session.sessionId,
                 transcriptPath: session.transcriptPath
             )
+        case .opencode:
+            return await OpencodeConversationParser.shared.parseFullConversation(sessionId: session.sessionId)
         }
     }
 
@@ -49,6 +53,8 @@ actor SessionTranscriptParser {
                 sessionId: session.sessionId,
                 transcriptPath: session.transcriptPath
             )
+        case .opencode:
+            return await OpencodeConversationParser.shared.parseIncremental(sessionId: session.sessionId)
         }
     }
 
@@ -61,6 +67,8 @@ actor SessionTranscriptParser {
                 sessionId: session.sessionId,
                 transcriptPath: session.transcriptPath
             )
+        case .opencode:
+            return await OpencodeConversationParser.shared.completedToolIds(sessionId: session.sessionId)
         }
     }
 
@@ -73,6 +81,8 @@ actor SessionTranscriptParser {
                 sessionId: session.sessionId,
                 transcriptPath: session.transcriptPath
             )
+        case .opencode:
+            return await OpencodeConversationParser.shared.toolResults(sessionId: session.sessionId)
         }
     }
 
@@ -85,6 +95,8 @@ actor SessionTranscriptParser {
                 sessionId: session.sessionId,
                 transcriptPath: session.transcriptPath
             )
+        case .opencode:
+            return await OpencodeConversationParser.shared.structuredResults(sessionId: session.sessionId)
         }
     }
 }
