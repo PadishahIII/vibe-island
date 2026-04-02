@@ -47,7 +47,7 @@ struct KittyRemoteControlStatus: Equatable, Sendable {
         }
 
         if endpoints.isEmpty {
-            return "Kitty is running, but no remote-control socket was detected."
+            return "Kitty is running, but the shared remote-control socket was not detected."
         }
 
         return nil
@@ -59,13 +59,20 @@ actor KittyRemoteControlService {
 
     private let bundleIdentifier = "net.kovidgoyal.kitty"
     private let fileManager = FileManager.default
+    private let sharedSocketPath = "/tmp/vibe-island-kitty.sock"
 
     private init() {}
 
     func status() async -> KittyRemoteControlStatus {
         let executablePath = kittyExecutablePath()
         let running = isRunning()
-        let endpoints = running ? await remoteControlEndpoints() : []
+        let endpoints: [KittyRemoteControlEndpoint]
+
+        if running, let endpoint = await sharedEndpoint() {
+            endpoints = [endpoint]
+        } else {
+            endpoints = []
+        }
 
         return KittyRemoteControlStatus(
             executablePath: executablePath,
@@ -80,54 +87,35 @@ actor KittyRemoteControlService {
             throw TerminalBackendError.notInstalled
         }
 
-        let endpoints = await remoteControlEndpoints()
-        guard !endpoints.isEmpty else {
+        guard let endpoint = await sharedEndpoint() else {
             throw TerminalBackendError.unavailable("Kitty remote-control listener is not available.")
         }
 
-        var windows: [KittyRemoteWindowRecord] = []
-        var capturedError: Error?
+        let output = try await ProcessExecutor.shared.run(
+            executablePath,
+            arguments: ["@", "--to", endpoint.address, "ls"]
+        )
 
-        for endpoint in endpoints {
-            do {
-                let output = try await ProcessExecutor.shared.run(
-                    executablePath,
-                    arguments: ["@", "--to", endpoint.address, "ls"]
-                )
-
-                let records = try KittyRemoteControlParser.parse(output)
-                windows.append(
-                    contentsOf: records.map { record in
-                        KittyRemoteWindowRecord(
-                            endpoint: endpoint,
-                            windowID: record.windowID,
-                            title: record.title,
-                            osWindowIndex: record.osWindowIndex,
-                            tabIndex: record.tabIndex,
-                            isFocused: record.isFocused,
-                            workingDirectory: normalizedDirectoryIfPresent(record.workingDirectory)
-                        )
-                    }
-                )
-            } catch {
-                capturedError = error
-            }
+        let records = try KittyRemoteControlParser.parse(output)
+        return records.map { record in
+            KittyRemoteWindowRecord(
+                endpoint: endpoint,
+                windowID: record.windowID,
+                title: record.title,
+                osWindowIndex: record.osWindowIndex,
+                tabIndex: record.tabIndex,
+                isFocused: record.isFocused,
+                workingDirectory: normalizedDirectoryIfPresent(record.workingDirectory)
+            )
         }
-
-        if windows.isEmpty, let capturedError {
-            throw capturedError
-        }
-
-        return windows
     }
 
-    func focusWindow(windowID: Int, preferredProcessID: pid_t? = nil) async throws {
+    func focusWindow(windowID: Int) async throws {
         guard let executablePath = kittyExecutablePath() else {
             throw TerminalBackendError.notInstalled
         }
 
-        let endpoints = await remoteControlEndpoints()
-        guard let endpoint = preferredEndpoint(in: endpoints, processID: preferredProcessID) else {
+        guard let endpoint = await sharedEndpoint() else {
             throw TerminalBackendError.unavailable("Kitty remote-control listener is not available.")
         }
 
@@ -151,8 +139,7 @@ actor KittyRemoteControlService {
             throw TerminalBackendError.notInstalled
         }
 
-        let endpoints = await remoteControlEndpoints()
-        guard let endpoint = preferredEndpoint(in: endpoints, processID: nil) else {
+        guard let endpoint = await sharedEndpoint() else {
             let fallback = suggestedLaunchCommand(executablePath: executablePath)
             throw TerminalBackendError.unavailable(
                 "Kitty remote-control listener is not available. Start Kitty with: \(fallback)"
@@ -179,13 +166,12 @@ actor KittyRemoteControlService {
     }
 
     private func suggestedLaunchCommand(executablePath: String) -> String {
-        let socketPath = (NSTemporaryDirectory() as NSString).appendingPathComponent("vibe-island-kitty.sock")
         return [
             shellQuoted(executablePath),
             "-o",
             "allow_remote_control=yes",
             "--listen-on",
-            shellQuoted("unix:\(socketPath)")
+            shellQuoted(sharedAddress)
         ].joined(separator: " ")
     }
 
@@ -200,17 +186,6 @@ actor KittyRemoteControlService {
         }
 
         return "/bin/bash"
-    }
-
-    private func preferredEndpoint(
-        in endpoints: [KittyRemoteControlEndpoint],
-        processID: pid_t?
-    ) -> KittyRemoteControlEndpoint? {
-        if let processID, let exact = endpoints.first(where: { $0.processID == processID }) {
-            return exact
-        }
-
-        return endpoints.first
     }
 
     private func kittyExecutablePath() -> String? {
@@ -244,72 +219,40 @@ actor KittyRemoteControlService {
             }
     }
 
-    private func remoteControlEndpoints() async -> [KittyRemoteControlEndpoint] {
-        var endpoints: [KittyRemoteControlEndpoint] = []
-
-        for application in runningApplications() {
-            let processID = application.processIdentifier
-
-            if let address = await remoteControlAddress(processID: processID) {
-                endpoints.append(KittyRemoteControlEndpoint(processID: processID, address: address))
-            }
-        }
-
-        return endpoints
+    private var sharedAddress: String {
+        "unix:\(sharedSocketPath)"
     }
 
-    private func remoteControlAddress(processID: pid_t) async -> String? {
-        if let configuredAddress = await remoteControlAddressFromProcessArguments(processID: processID) {
-            return configuredAddress
-        }
-
-        guard let socketPath = await remoteControlSocketPath(processID: processID) else {
+    private func sharedEndpoint() async -> KittyRemoteControlEndpoint? {
+        guard isRunning() else {
             return nil
         }
 
-        return "unix:\(socketPath)"
-    }
+        guard await isSharedSocketReachable() else {
+            return nil
+        }
 
-    private func remoteControlAddressFromProcessArguments(processID: pid_t) async -> String? {
-        let output = try? await ProcessExecutor.shared.run(
-            "/bin/ps",
-            arguments: ["-ww", "-o", "command=", "-p", "\(processID)"]
+        let ownerProcessID = runningApplications().first?.processIdentifier ?? 0
+        return KittyRemoteControlEndpoint(
+            processID: ownerProcessID,
+            address: sharedAddress
         )
-
-        guard let commandLine = output?.trimmingCharacters(in: .whitespacesAndNewlines) else {
-            return nil
-        }
-
-        return KittyRemoteControlAddressParser.parse(commandLine: commandLine)
     }
 
-    private func remoteControlSocketPath(processID: pid_t) async -> String? {
-        let output = try? await ProcessExecutor.shared.run(
-            "/usr/sbin/lsof",
-            arguments: ["-U", "-a", "-p", "\(processID)", "-Fn"]
-        )
-
-        guard let stdout = output else {
-            return nil
+    private func isSharedSocketReachable() async -> Bool {
+        guard let executablePath = kittyExecutablePath() else {
+            return false
         }
 
-        var candidates: [String] = []
-
-        for line in stdout.split(whereSeparator: \.isNewline) {
-            guard line.first == "n" else {
-                continue
-            }
-
-            let path = String(line.dropFirst())
-
-            if path.hasPrefix("/"), !path.contains("(none)") {
-                candidates.append(path)
-            }
+        do {
+            _ = try await ProcessExecutor.shared.run(
+                executablePath,
+                arguments: ["@", "--to", sharedAddress, "ls"]
+            )
+            return true
+        } catch {
+            return false
         }
-
-        return candidates.first(where: {
-            $0.localizedCaseInsensitiveContains("kitty") || $0.localizedCaseInsensitiveContains(".sock")
-        }) ?? candidates.first
     }
 
     private func normalizedDirectory(_ directory: String) -> String {
