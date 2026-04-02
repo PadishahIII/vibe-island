@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "codex-island-sidecar"
+name = "vibe-island-sidecar"
 version = "0.1.0"

@@ -1,14 +1,14 @@
 #!/bin/bash
-# Build Codex Island for release
+# Build Vibe Island for release
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="$PROJECT_DIR/build"
-ARCHIVE_PATH="$BUILD_DIR/CodexIsland.xcarchive"
+ARCHIVE_PATH="$BUILD_DIR/VibeIsland.xcarchive"
 EXPORT_PATH="$BUILD_DIR/export"
 SCHEME="CodexIsland"
-APP_NAME="Codex Island"
+APP_NAME="Vibe Island"
 
 run_xcodebuild() {
     if command -v xcpretty >/dev/null 2>&1; then
@@ -23,8 +23,8 @@ run_xcodebuild() {
 }
 
 detect_team_id() {
-    if [ -n "${CODEX_ISLAND_TEAM_ID:-}" ]; then
-        echo "$CODEX_ISLAND_TEAM_ID"
+    if [ -n "${VIBE_ISLAND_TEAM_ID:-}" ]; then
+        echo "$VIBE_ISLAND_TEAM_ID"
         return
     fi
 
@@ -48,7 +48,7 @@ detect_team_id() {
 TEAM_ID="$(detect_team_id)"
 ARCHIVE_APP_PATH="$ARCHIVE_PATH/Products/Applications/$APP_NAME.app"
 
-echo "=== Building Codex Island ==="
+echo "=== Building Vibe Island ==="
 echo ""
 
 # Clean previous builds
@@ -101,7 +101,7 @@ if [ -z "$TEAM_ID" ]; then
     echo "Unsigned app exported to: $EXPORT_PATH/$APP_NAME.app"
     echo ""
     echo "To create a signed Developer ID export, rerun with:"
-    echo "  DEVELOPMENT_TEAM=YOURTEAMID ./scripts/build.sh"
+    echo "  VIBE_ISLAND_TEAM_ID=YOURTEAMID ./scripts/build.sh"
     exit 0
 fi
 

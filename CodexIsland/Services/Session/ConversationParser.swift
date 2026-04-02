@@ -22,7 +22,7 @@ actor ConversationParser {
     static let shared = ConversationParser()
 
     /// Logger for conversation parser (nonisolated static for cross-context access)
-    nonisolated static let logger = Logger(subsystem: "com.codexisland", category: "Parser")
+    nonisolated static let logger = Logger(subsystem: "com.vibeisland", category: "Parser")
 
     /// Cache of parsed conversation info, keyed by session file path
     private var cache: [String: CachedInfo] = [:]
@@ -1054,4 +1054,3 @@ extension ConversationParser {
         return tools
     }
 }
-

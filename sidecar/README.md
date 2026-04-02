@@ -1,4 +1,4 @@
-# codex-island-sidecar
+# vibe-island-sidecar
 
 Rust sidecar scaffold for future Codex session aggregation and IPC.
 

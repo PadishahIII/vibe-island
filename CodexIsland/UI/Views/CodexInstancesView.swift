@@ -576,7 +576,7 @@ private struct SessionProviderBadge: View {
     }
 
     private var badgeColor: Color {
-        SessionVisualStyle.accentColor(provider: provider, phase: phase)
+        SessionVisualStyle.badgeColor(provider: provider)
     }
 }
 

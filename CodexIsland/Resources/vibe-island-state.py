@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Codex Island hook helper.
+Vibe Island hook helper.
 
 - Receives Codex hooks payloads on stdin.
-- Normalizes them for Codex Island.app via Unix socket.
+- Normalizes them for Vibe Island.app via Unix socket.
 - Uses transcript_path as the durable source of truth for later reconciliation.
 """
 
@@ -13,8 +13,8 @@ import socket
 import sys
 from datetime import datetime
 
-SOCKET_PATH = "/tmp/codex-island.sock"
-DEBUG_LOG_PATH = os.path.expanduser("~/.codex/hooks/codex-island-debug.jsonl")
+SOCKET_PATH = "/tmp/vibe-island.sock"
+DEBUG_LOG_PATH = os.path.expanduser("~/.codex/hooks/vibe-island-debug.jsonl")
 
 
 def append_debug(record):

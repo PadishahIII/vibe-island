@@ -7,7 +7,7 @@
   <p align="center">
     <a href="./README.md">English</a>
     ·
-    <a href="https://github.com/Jarcis-cy/codex-island/releases/latest">最新版本</a>
+    <a href="https://github.com/PadishahIII/vibe-island/releases/latest">最新版本</a>
   </p>
 </div>
 
@@ -47,9 +47,9 @@ xcodebuild -scheme CodexIsland -configuration Debug build
 ./scripts/build.sh
 ```
 
-导出的 Vibe Island 应用位于 `build/export/Codex Island.app`。
+导出的 Vibe Island 应用位于 `build/export/Vibe Island.app`。
 
-如果当前机器没有配置 Apple 团队，`./scripts/build.sh` 会先完成归档，再导出一个未签名的 `.app`，用于本地使用或手工签名。要生成签过 `Developer ID` 的导出包，请在执行时传入 `DEVELOPMENT_TEAM=<YourTeamID>` 或 `CODEX_ISLAND_TEAM_ID=<YourTeamID>`。
+如果当前机器没有配置 Apple 团队，`./scripts/build.sh` 会先完成归档，再导出一个未签名的 `.app`，用于本地使用或手工签名。要生成签过 `Developer ID` 的导出包，请在执行时传入 `DEVELOPMENT_TEAM=<YourTeamID>` 或 `VIBE_ISLAND_TEAM_ID=<YourTeamID>`。
 
 ## 工作原理
 
@@ -63,7 +63,7 @@ xcodebuild -scheme CodexIsland -configuration Debug build
 - `CodexIsland/Core/`：设置、几何计算、屏幕选择等基础能力
 - `CodexIsland/Services/`：hooks、会话解析、tmux 集成、更新、窗口管理
 - `CodexIsland/UI/`：刘海视图、菜单界面、聊天界面和复用组件
-- `CodexIsland/Resources/`：随应用分发的脚本资源，例如 `codex-island-state.py`
+- `CodexIsland/Resources/`：随应用分发的脚本资源，例如 `vibe-island-state.py`
 - `scripts/`：构建、签名、公证、发布辅助脚本
 - `sidecar/`：预留的 Rust sidecar 脚手架
 
@@ -90,7 +90,7 @@ xcodebuild -scheme CodexIsland -configuration Debug build
 
 `./scripts/create-release.sh` 默认假设输入的是已经完成 `Developer ID` 签名的应用。如果你前一步只做了未签名的本地导出，需要先带上有效 Team ID 重新执行 `./scripts/build.sh`，再继续发布流程。
 
-如果改动了 `CodexIsland/Services/Hooks/` 或 `CodexIsland/Resources/codex-island-state.py`，要把它视为会直接影响用户本地 Codex 环境的高风险改动，务必手工验证。
+如果改动了 `CodexIsland/Services/Hooks/` 或 `CodexIsland/Resources/vibe-island-state.py`，要把它视为会直接影响用户本地 Codex 环境的高风险改动，务必手工验证。
 
 ## 致谢
 

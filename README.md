@@ -7,7 +7,7 @@
   <p align="center">
     <a href="./README.zh-CN.md">简体中文</a>
     ·
-    <a href="https://github.com/Jarcis-cy/codex-island/releases/latest">Latest Release</a>
+    <a href="https://github.com/PadishahIII/vibe-island/releases/latest">Latest Release</a>
   </p>
 </div>
 
@@ -47,9 +47,9 @@ For a release build:
 ./scripts/build.sh
 ```
 
-The exported Vibe Island app bundle is written to `build/export/Codex Island.app`.
+The exported Vibe Island app bundle is written to `build/export/Vibe Island.app`.
 
-If no Apple team is configured, `./scripts/build.sh` archives the app and exports an unsigned `.app` bundle for local use. To produce a signed `Developer ID` export, run it with `DEVELOPMENT_TEAM=<YourTeamID>` or `CODEX_ISLAND_TEAM_ID=<YourTeamID>`.
+If no Apple team is configured, `./scripts/build.sh` archives the app and exports an unsigned `.app` bundle for local use. To produce a signed `Developer ID` export, run it with `DEVELOPMENT_TEAM=<YourTeamID>` or `VIBE_ISLAND_TEAM_ID=<YourTeamID>`.
 
 ## How It Works
 
@@ -63,7 +63,7 @@ The current architecture is still hooks-first inside the macOS app process. The 
 - `CodexIsland/Core/`: shared settings, geometry, and screen selection
 - `CodexIsland/Services/`: hooks, session parsing, tmux integration, updates, and window management
 - `CodexIsland/UI/`: notch views, menu UI, chat UI, and reusable components
-- `CodexIsland/Resources/`: bundled scripts such as `codex-island-state.py`
+- `CodexIsland/Resources/`: bundled scripts such as `vibe-island-state.py`
 - `scripts/`: build, signing, notarization, and release helpers
 - `sidecar/`: future Rust sidecar scaffold
 
@@ -90,7 +90,7 @@ Open the project in Xcode for day-to-day work. The repository also includes rele
 
 `./scripts/create-release.sh` assumes the app has already been signed for `Developer ID`. If you only ran an unsigned local export, rerun `./scripts/build.sh` with a valid team ID before creating a release.
 
-If you change anything under `CodexIsland/Services/Hooks/` or `CodexIsland/Resources/codex-island-state.py`, treat it as user-impacting local environment behavior and verify it carefully.
+If you change anything under `CodexIsland/Services/Hooks/` or `CodexIsland/Resources/vibe-island-state.py`, treat it as user-impacting local environment behavior and verify it carefully.
 
 ## Acknowledgements
 

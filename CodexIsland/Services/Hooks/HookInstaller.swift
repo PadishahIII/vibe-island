@@ -8,8 +8,8 @@
 import Foundation
 
 struct HookInstaller {
-    private static let scriptName = "codex-island-state.py"
-    private static let legacyScriptNames = ["claude-island-state.py"]
+    private static let scriptName = "vibe-island-state.py"
+    private static let legacyScriptNames = ["codex-island-state.py", "claude-island-state.py"]
     private static let supportedHookEvents = [
         "SessionStart",
         "UserPromptSubmit",
@@ -32,7 +32,12 @@ struct HookInstaller {
             withIntermediateDirectories: true
         )
 
-        if let bundled = Bundle.main.url(forResource: "codex-island-state", withExtension: "py") {
+        if let bundled = Bundle.main.url(forResource: "vibe-island-state", withExtension: "py") {
+            for legacyScriptName in legacyScriptNames {
+                try? FileManager.default.removeItem(
+                    at: hooksDir.appendingPathComponent(legacyScriptName)
+                )
+            }
             try? FileManager.default.removeItem(at: pythonScript)
             try? FileManager.default.copyItem(at: bundled, to: pythonScript)
             try? FileManager.default.setAttributes(

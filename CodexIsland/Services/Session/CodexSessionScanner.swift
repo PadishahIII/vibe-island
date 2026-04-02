@@ -130,7 +130,8 @@ final class CodexSessionScanner {
 
     private func isCodexCommand(_ command: String) -> Bool {
         let lowercased = command.lowercased()
-        guard !lowercased.contains("codex-island") else {
+        guard !lowercased.contains("vibe-island"),
+              !lowercased.contains("codex-island") else {
             return false
         }
 

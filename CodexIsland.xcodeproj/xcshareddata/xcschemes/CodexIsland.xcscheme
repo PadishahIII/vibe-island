@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "FD33FD5C2EDF32D7002A6548"
-               BuildableName = "Codex Island.app"
+               BuildableName = "Vibe Island.app"
                BlueprintName = "CodexIsland"
                ReferencedContainer = "container:CodexIsland.xcodeproj">
             </BuildableReference>
@@ -45,7 +45,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "FD33FD5C2EDF32D7002A6548"
-            BuildableName = "Codex Island.app"
+            BuildableName = "Vibe Island.app"
             BlueprintName = "CodexIsland"
             ReferencedContainer = "container:CodexIsland.xcodeproj">
          </BuildableReference>
@@ -62,7 +62,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "FD33FD5C2EDF32D7002A6548"
-            BuildableName = "Codex Island.app"
+            BuildableName = "Vibe Island.app"
             BlueprintName = "CodexIsland"
             ReferencedContainer = "container:CodexIsland.xcodeproj">
          </BuildableReference>

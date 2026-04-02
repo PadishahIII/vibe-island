@@ -7,5 +7,5 @@ fn main() {
         return;
     }
 
-    eprintln!("codex-island-sidecar: scaffold only");
+    eprintln!("vibe-island-sidecar: scaffold only");
 }

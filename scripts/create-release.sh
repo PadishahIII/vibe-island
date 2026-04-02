@@ -9,16 +9,47 @@ EXPORT_PATH="$BUILD_DIR/export"
 RELEASE_DIR="$PROJECT_DIR/releases"
 KEYS_DIR="$PROJECT_DIR/.sparkle-keys"
 
-# GitHub repository (owner/repo format)
-GITHUB_REPO="Jarcis-cy/codex-island"
+detect_github_repo() {
+    if [ -n "${GITHUB_REPO:-}" ]; then
+        echo "$GITHUB_REPO"
+        return
+    fi
+
+    local remote_url
+    remote_url="$(git -C "$PROJECT_DIR" remote get-url origin 2>/dev/null || true)"
+
+    case "$remote_url" in
+        git@github.com:*.git)
+            echo "${remote_url#git@github.com:}" | sed 's/\.git$//'
+            return
+            ;;
+        git@github.com:*)
+            echo "${remote_url#git@github.com:}"
+            return
+            ;;
+        https://github.com/*.git)
+            echo "${remote_url#https://github.com/}" | sed 's/\.git$//'
+            return
+            ;;
+        https://github.com/*)
+            echo "${remote_url#https://github.com/}"
+            return
+            ;;
+    esac
+
+    echo "PadishahIII/vibe-island"
+}
+
+GITHUB_REPO="$(detect_github_repo)"
 
 # Website repo for auto-updating appcast
-WEBSITE_DIR="${CODEX_ISLAND_WEBSITE:-${CLAUDE_ISLAND_WEBSITE:-$PROJECT_DIR/../codex-island-website}}"
+WEBSITE_DIR="${VIBE_ISLAND_WEBSITE:-${CLAUDE_ISLAND_WEBSITE:-$PROJECT_DIR/../vibe-island}}"
 WEBSITE_PUBLIC="$WEBSITE_DIR/public"
 
-APP_PATH="$EXPORT_PATH/Codex Island.app"
-APP_NAME="CodexIsland"
-KEYCHAIN_PROFILE="CodexIsland"
+APP_DISPLAY_NAME="Vibe Island"
+ARTIFACT_NAME="VibeIsland"
+APP_PATH="$EXPORT_PATH/$APP_DISPLAY_NAME.app"
+KEYCHAIN_PROFILE="${VIBE_ISLAND_KEYCHAIN_PROFILE:-VibeIsland}"
 
 echo "=== Creating Release ==="
 echo ""
@@ -65,7 +96,7 @@ if ! xcrun notarytool history --keychain-profile "$KEYCHAIN_PROFILE" &>/dev/null
     echo "WARNING: Skipping notarization. Users will see Gatekeeper warnings!"
 else
     # Create zip for notarization
-    ZIP_PATH="$BUILD_DIR/$APP_NAME-$VERSION.zip"
+    ZIP_PATH="$BUILD_DIR/$ARTIFACT_NAME-$VERSION.zip"
     echo "Creating zip for notarization..."
     ditto -c -k --keepParent "$APP_PATH" "$ZIP_PATH"
 
@@ -88,7 +119,7 @@ echo ""
 # ============================================
 echo "=== Step 2: Creating DMG ==="
 
-DMG_PATH="$RELEASE_DIR/$APP_NAME-$VERSION.dmg"
+DMG_PATH="$RELEASE_DIR/$ARTIFACT_NAME-$VERSION.dmg"
 
 # Remove existing DMG if present
 if [ -f "$DMG_PATH" ]; then
@@ -100,17 +131,17 @@ fi
 if command -v create-dmg &> /dev/null; then
     echo "Using create-dmg for prettier output..."
     create-dmg \
-        --volname "Codex Island" \
+        --volname "$APP_DISPLAY_NAME" \
         --window-size 600 400 \
         --icon-size 100 \
-        --icon "Codex Island.app" 150 200 \
+        --icon "$APP_DISPLAY_NAME.app" 150 200 \
         --app-drop-link 450 200 \
-        --hide-extension "Codex Island.app" \
+        --hide-extension "$APP_DISPLAY_NAME.app" \
         "$DMG_PATH" \
         "$APP_PATH"
 else
     echo "Using hdiutil (install create-dmg for prettier DMG: brew install create-dmg)"
-    hdiutil create -volname "Codex Island" \
+    hdiutil create -volname "$APP_DISPLAY_NAME" \
         -srcfolder "$APP_PATH" \
         -ov -format UDZO \
         "$DMG_PATH"
@@ -215,19 +246,19 @@ else
         echo "Creating release v$VERSION..."
         gh release create "v$VERSION" "$DMG_PATH" \
             --repo "$GITHUB_REPO" \
-            --title "Codex Island v$VERSION" \
-            --notes "## Codex Island v$VERSION
+            --title "Vibe Island v$VERSION" \
+            --notes "## Vibe Island v$VERSION
 
 ### Installation
-1. Download \`$APP_NAME-$VERSION.dmg\`
-2. Open the DMG and drag Codex Island to Applications
-3. Launch Codex Island from Applications
+1. Download \`$ARTIFACT_NAME-$VERSION.dmg\`
+2. Open the DMG and drag Vibe Island to Applications
+3. Launch Vibe Island from Applications
 
 ### Auto-updates
-After installation, Codex Island will automatically check for updates."
+After installation, Vibe Island will automatically check for updates."
     fi
 
-    GITHUB_DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/download/v$VERSION/$APP_NAME-$VERSION.dmg"
+    GITHUB_DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/download/v$VERSION/$ARTIFACT_NAME-$VERSION.dmg"
     echo "GitHub release created: https://github.com/$GITHUB_REPO/releases/tag/v$VERSION"
     echo "Download URL: $GITHUB_DOWNLOAD_URL"
 fi
@@ -245,7 +276,7 @@ if [ -d "$WEBSITE_PUBLIC" ] && [ -f "$RELEASE_DIR/appcast/appcast.xml" ]; then
 
     # Update the download URL in appcast to point to GitHub releases
     if [ -n "$GITHUB_DOWNLOAD_URL" ]; then
-        sed -i '' "s|url=\"[^\"]*$APP_NAME-$VERSION.dmg\"|url=\"$GITHUB_DOWNLOAD_URL\"|g" "$WEBSITE_PUBLIC/appcast.xml"
+        sed -i '' "s|url=\"[^\"]*$ARTIFACT_NAME-$VERSION.dmg\"|url=\"$GITHUB_DOWNLOAD_URL\"|g" "$WEBSITE_PUBLIC/appcast.xml"
         echo "Updated appcast.xml with GitHub download URL"
     fi
 

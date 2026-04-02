@@ -12,7 +12,7 @@ import os.log
 /// Manages debounced file sync operations for session data
 actor FileSyncScheduler {
     /// Logger for file sync (nonisolated static for cross-context access)
-    nonisolated static let logger = Logger(subsystem: "com.codexisland", category: "FileSync")
+    nonisolated static let logger = Logger(subsystem: "com.vibeisland", category: "FileSync")
 
     /// Pending sync tasks keyed by sessionId
     private var pendingSyncs: [String: Task<Void, Never>] = [:]

@@ -58,4 +58,8 @@ enum SessionVisualStyle {
     static func idleProviderColor(_ provider: SessionProvider) -> Color {
         activeProviderColor(provider).opacity(0.72)
     }
+
+    static func badgeColor(provider: SessionProvider) -> Color {
+        activeProviderColor(provider)
+    }
 }

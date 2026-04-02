@@ -9,7 +9,7 @@ import AppKit
 import os.log
 
 /// Logger for window management
-private let logger = Logger(subsystem: "com.codexisland", category: "Window")
+private let logger = Logger(subsystem: "com.vibeisland", category: "Window")
 
 class WindowManager {
     private(set) var windowController: NotchWindowController?
