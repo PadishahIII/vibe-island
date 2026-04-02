@@ -11,73 +11,138 @@ import SwiftUI
 struct CodexInstancesView: View {
     @ObservedObject var sessionMonitor: CodexSessionMonitor
     @ObservedObject var viewModel: NotchViewModel
+    @ObservedObject private var visibilitySelector = SessionVisibilitySelector.shared
+    @ObservedObject private var presentationController = SessionListPresentationController.shared
 
     var body: some View {
-        if sessionMonitor.instances.isEmpty {
-            emptyState
-        } else {
-            instancesList
+        VStack(spacing: 10) {
+            SessionVisibilityPickerRow(visibilitySelector: visibilitySelector)
+            SessionListControlsRow(presentationController: presentationController)
+
+            if sessionMonitor.instances.isEmpty {
+                emptyState
+            } else {
+                instancesList
+            }
         }
+        .padding(.top, 4)
     }
 
     // MARK: - Empty State
 
     private var emptyState: some View {
         VStack(spacing: 8) {
-            Text("No sessions")
+            Text(emptyStateTitle)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.white.opacity(0.4))
 
-            Text("Run codex or opencode in terminal")
+            Text(emptyStateSubtitle)
                 .font(.system(size: 11))
                 .foregroundColor(.white.opacity(0.25))
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    private var emptyStateTitle: String {
+        visibilitySelector.visibleProviders.isEmpty ? "All session sources are hidden" : "No sessions"
+    }
+
+    private var emptyStateSubtitle: String {
+        if visibilitySelector.visibleProviders.isEmpty {
+            return "Enable Codex, OpenCode, Claude Code, or terminal providers above"
+        }
+        return "Run Claude Code, Codex, OpenCode, or open iTerm2, Kitty, or Alacritty"
+    }
+
     // MARK: - Instances List
 
-    /// Priority: active (approval/processing/compacting) > waitingForInput > idle
-    /// Secondary sort: by last user message date (stable - doesn't change when agent responds)
-    /// Note: approval requests stay in their date-based position to avoid layout shift
-    private var sortedInstances: [SessionState] {
-        sessionMonitor.instances.sorted { a, b in
-            let priorityA = phasePriority(a.phase)
-            let priorityB = phasePriority(b.phase)
-            if priorityA != priorityB {
-                return priorityA < priorityB
+    private var presentedSections: [SessionSection] {
+        let orderedSessions = orderedInstances(from: sessionMonitor.instances)
+
+        switch presentationController.groupingMode {
+        case .none:
+            return [SessionSection(id: "all", title: nil, sessions: orderedSessions)]
+        case .sessionType:
+            let grouped = Dictionary(grouping: orderedSessions, by: \.provider)
+            return SessionProvider.visibilityOptions.compactMap { provider in
+                guard let sessions = grouped[provider], !sessions.isEmpty else { return nil }
+                return SessionSection(
+                    id: "provider-\(provider.rawValue)",
+                    title: provider.displayName,
+                    sessions: sessions
+                )
             }
-            // Sort by last user message date (more recent first)
-            // Fall back to lastActivity if no user messages yet
-            let dateA = a.lastUserMessageDate ?? a.lastActivity
-            let dateB = b.lastUserMessageDate ?? b.lastActivity
-            return dateA > dateB
+        case .status:
+            let grouped = Dictionary(grouping: orderedSessions, by: phaseGroup(for:))
+            return SessionPhaseGroup.allCases.compactMap { group in
+                guard let sessions = grouped[group], !sessions.isEmpty else { return nil }
+                return SessionSection(
+                    id: "status-\(group.rawValue)",
+                    title: group.title,
+                    sessions: sessions
+                )
+            }
         }
     }
 
-    /// Lower number = higher priority
-    /// Approval requests share priority with processing to maintain stable ordering
-    private func phasePriority(_ phase: SessionPhase) -> Int {
-        switch phase {
-        case .waitingForApproval, .processing, .compacting: return 0
-        case .waitingForInput: return 1
-        case .idle, .ended: return 2
+    private func orderedInstances(from sessions: [SessionState]) -> [SessionState] {
+        switch presentationController.sortMode {
+        case .defaultOrder:
+            return sessions
+        case .updatedAt:
+            return sessions.sorted { lhs, rhs in
+                if lhs.lastActivity != rhs.lastActivity {
+                    return lhs.lastActivity > rhs.lastActivity
+                }
+                return lhs.createdAt > rhs.createdAt
+            }
+        }
+    }
+
+    private func phaseGroup(for session: SessionState) -> SessionPhaseGroup {
+        switch session.phase {
+        case .waitingForApproval:
+            return .waitingForApproval
+        case .processing:
+            return .processing
+        case .compacting:
+            return .compacting
+        case .waitingForInput:
+            return .waitingForInput
+        case .idle:
+            return .idle
+        case .ended:
+            return .ended
         }
     }
 
     private var instancesList: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            LazyVStack(spacing: 2) {
-                ForEach(sortedInstances) { session in
-                    InstanceRow(
-                        session: session,
-                        onFocus: { focusSession(session) },
-                        onChat: { openChat(session) },
-                        onArchive: { archiveSession(session) },
-                        onApprove: { approveSession(session) },
-                        onReject: { rejectSession(session) }
-                    )
-                    .id(session.stableId)
+            LazyVStack(spacing: 10) {
+                ForEach(presentedSections) { section in
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let title = section.title {
+                            Text(title)
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundColor(.white.opacity(0.35))
+                                .padding(.horizontal, 8)
+                        }
+
+                        VStack(spacing: 2) {
+                            ForEach(section.sessions) { session in
+                                InstanceRow(
+                                    session: session,
+                                    onFocus: { focusSession(session) },
+                                    onChat: { openChat(session) },
+                                    onArchive: { archiveSession(session) },
+                                    onApprove: { approveSession(session) },
+                                    onReject: { rejectSession(session) }
+                                )
+                                .id(session.stableId)
+                            }
+                        }
+                    }
                 }
             }
             .padding(.vertical, 4)
@@ -88,6 +153,11 @@ struct CodexInstancesView: View {
     // MARK: - Actions
 
     private func focusSession(_ session: SessionState) {
+        if session.isTerminalSession {
+            sessionMonitor.activateTerminalSession(sessionId: session.sessionId)
+            return
+        }
+
         guard session.isInTmux else { return }
 
         Task {
@@ -100,6 +170,10 @@ struct CodexInstancesView: View {
     }
 
     private func openChat(_ session: SessionState) {
+        guard session.supportsChat else {
+            focusSession(session)
+            return
+        }
         viewModel.showChat(for: session)
     }
 
@@ -112,7 +186,133 @@ struct CodexInstancesView: View {
     }
 
     private func archiveSession(_ session: SessionState) {
+        guard !session.isTerminalSession else { return }
         sessionMonitor.archiveSession(sessionId: session.sessionId)
+    }
+}
+
+private struct SessionSection: Identifiable {
+    let id: String
+    let title: String?
+    let sessions: [SessionState]
+}
+
+private enum SessionPhaseGroup: String, CaseIterable {
+    case waitingForApproval
+    case processing
+    case compacting
+    case waitingForInput
+    case idle
+    case ended
+
+    var title: String {
+        switch self {
+        case .waitingForApproval:
+            return "Waiting for Approval"
+        case .processing:
+            return "Processing"
+        case .compacting:
+            return "Compacting"
+        case .waitingForInput:
+            return "Ready for Input"
+        case .idle:
+            return "Idle"
+        case .ended:
+            return "Ended"
+        }
+    }
+}
+
+private struct SessionListControlsRow: View {
+    @ObservedObject var presentationController: SessionListPresentationController
+
+    var body: some View {
+        HStack(spacing: 8) {
+            SessionListMenu(
+                icon: "arrow.up.arrow.down",
+                title: "Sort",
+                value: presentationController.sortMode.shortTitle
+            ) {
+                ForEach(SessionListSortMode.allCases, id: \.self) { mode in
+                    Button {
+                        presentationController.setSortMode(mode)
+                    } label: {
+                        if presentationController.sortMode == mode {
+                            Label(mode.title, systemImage: "checkmark")
+                        } else {
+                            Text(mode.title)
+                        }
+                    }
+                }
+            }
+
+            SessionListMenu(
+                icon: "square.grid.2x2",
+                title: "Group",
+                value: presentationController.groupingMode.shortTitle
+            ) {
+                ForEach(SessionListGroupingMode.allCases, id: \.self) { mode in
+                    Button {
+                        presentationController.setGroupingMode(mode)
+                    } label: {
+                        if presentationController.groupingMode == mode {
+                            Label(mode.title, systemImage: "checkmark")
+                        } else {
+                            Text(mode.title)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct SessionListMenu<Content: View>: View {
+    let icon: String
+    let title: String
+    let value: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        Menu {
+            content
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.7))
+                    .frame(width: 16)
+
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+
+                Spacer(minLength: 8)
+
+                Text(value)
+                    .font(.system(size: 11))
+                    .foregroundColor(.white.opacity(0.4))
+                    .lineLimit(1)
+
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10))
+                    .foregroundColor(.white.opacity(0.4))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.white.opacity(0.04))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.white.opacity(0.06), lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -139,6 +339,10 @@ struct InstanceRow: View {
         session.phase.isWaitingForApproval
     }
 
+    private var isTerminalSession: Bool {
+        session.isTerminalSession
+    }
+
     /// Whether the pending tool requires interactive input (not just approve/deny)
     private var isInteractiveTool: Bool {
         guard let toolName = session.pendingToolName else { return false }
@@ -153,10 +357,14 @@ struct InstanceRow: View {
 
             // Text content
             VStack(alignment: .leading, spacing: 2) {
-                Text(session.displayTitle)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    SessionProviderBadge(provider: session.provider, phase: session.phase)
+
+                    Text(session.displayTitle)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                }
 
                 if let terminalName = session.terminalName, !terminalName.isEmpty {
                     Text(terminalName + (session.isInTmux ? " • tmux" : ""))
@@ -234,7 +442,14 @@ struct InstanceRow: View {
             Spacer(minLength: 0)
 
             // Action icons or approval buttons
-            if isWaitingForApproval && isInteractiveTool {
+            if isTerminalSession {
+                HStack(spacing: 8) {
+                    IconButton(icon: "eye") {
+                        onFocus()
+                    }
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            } else if isWaitingForApproval && isInteractiveTool {
                 // Interactive tools like AskUserQuestion - show chat + terminal buttons
                 HStack(spacing: 8) {
                     IconButton(icon: "bubble.left") {
@@ -286,7 +501,11 @@ struct InstanceRow: View {
         .padding(.vertical, 10)
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
-            onChat()
+            if isTerminalSession {
+                onFocus()
+            } else {
+                onChat()
+            }
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isWaitingForApproval)
         .background(
@@ -301,7 +520,12 @@ struct InstanceRow: View {
 
     @ViewBuilder
     private var stateIndicator: some View {
-        switch session.phase {
+        if isTerminalSession {
+            Circle()
+                .fill(session.isFocusedTerminalSession ? TerminalColors.green : Color.white.opacity(0.2))
+                .frame(width: 6, height: 6)
+        } else {
+            switch session.phase {
         case .processing, .compacting:
             Text(spinnerSymbols[spinnerPhase % spinnerSymbols.count])
                 .font(.system(size: 12, weight: .bold))
@@ -325,8 +549,35 @@ struct InstanceRow: View {
                 .fill(Color.white.opacity(0.2))
                 .frame(width: 6, height: 6)
         }
+        }
     }
 
+}
+
+private struct SessionProviderBadge: View {
+    let provider: SessionProvider
+    let phase: SessionPhase
+
+    var body: some View {
+        Text(provider.badgeLabel)
+            .font(.system(size: 9, weight: .bold, design: .monospaced))
+            .foregroundColor(badgeColor)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(
+                Capsule()
+                    .fill(badgeColor.opacity(0.16))
+            )
+            .overlay(
+                Capsule()
+                    .stroke(badgeColor.opacity(0.35), lineWidth: 0.8)
+            )
+            .fixedSize(horizontal: true, vertical: true)
+    }
+
+    private var badgeColor: Color {
+        SessionVisualStyle.accentColor(provider: provider, phase: phase)
+    }
 }
 
 // MARK: - Inline Approval Buttons

@@ -16,12 +16,31 @@ class CodexSessionMonitor: ObservableObject {
     @Published var pendingInstances: [SessionState] = []
 
     private var cancellables = Set<AnyCancellable>()
+    private let visibilitySelector = SessionVisibilitySelector.shared
+    private var agentSessions: [SessionState] = []
+    private var terminalSessions: [SessionState] = []
 
     init() {
         SessionStore.shared.sessionsPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] sessions in
-                self?.updateFromSessions(sessions)
+                self?.agentSessions = sessions
+                self?.updateVisibleInstances()
+            }
+            .store(in: &cancellables)
+
+        TerminalSessionMonitor.shared.$sessions
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] sessions in
+                self?.terminalSessions = sessions
+                self?.updateVisibleInstances()
+            }
+            .store(in: &cancellables)
+
+        visibilitySelector.$visibleProviders
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updateVisibleInstances()
             }
             .store(in: &cancellables)
 
@@ -31,6 +50,8 @@ class CodexSessionMonitor: ObservableObject {
     // MARK: - Monitoring Lifecycle
 
     func startMonitoring() {
+        TerminalSessionMonitor.shared.start()
+        CodexSessionScanner.shared.start()
         OpencodeSessionScanner.shared.start()
 
         HookSocketServer.shared.start(
@@ -73,6 +94,8 @@ class CodexSessionMonitor: ObservableObject {
     }
 
     func stopMonitoring() {
+        TerminalSessionMonitor.shared.stop()
+        CodexSessionScanner.shared.stop()
         OpencodeSessionScanner.shared.stop()
         HookSocketServer.shared.stop()
     }
@@ -123,11 +146,19 @@ class CodexSessionMonitor: ObservableObject {
         }
     }
 
+    func activateTerminalSession(sessionId: String) {
+        TerminalSessionMonitor.shared.activate(sessionId: sessionId)
+    }
+
     // MARK: - State Update
 
-    private func updateFromSessions(_ sessions: [SessionState]) {
-        instances = sessions
-        pendingInstances = sessions.filter { $0.needsAttention }
+    private func updateVisibleInstances() {
+        let visibleProviders = visibilitySelector.visibleProviders
+        let combined = (agentSessions + terminalSessions)
+            .filter { visibleProviders.contains($0.provider) }
+
+        instances = combined
+        pendingInstances = combined.filter { $0.needsAttention }
     }
 
     // MARK: - History Loading (for UI)

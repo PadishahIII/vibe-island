@@ -16,5 +16,13 @@ struct CodexIslandApp: App {
         Settings {
             EmptyView()
         }
+        .commands {
+            CommandGroup(replacing: .appTermination) {
+                Button("Quit Vibe Island") {
+                    AppDelegate.shared?.quitApplication()
+                }
+                .keyboardShortcut("q")
+            }
+        }
     }
 }

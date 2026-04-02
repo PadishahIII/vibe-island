@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="CodexIsland/Assets.xcassets/AppIcon.appiconset/icon_128x128.png" alt="Codex Island logo" width="100" height="100">
-  <h1 align="center">Codex Island</h1>
+  <img src="docs/readme-logo-rainbow.svg" alt="Vibe Island logo" width="100" height="100">
+  <h1 align="center">Vibe Island</h1>
   <p align="center">
     面向 Codex CLI 的 macOS 刘海区与菜单栏伴侣应用。
   </p>
@@ -11,7 +11,7 @@
   </p>
 </div>
 
-Codex Island 用来盯住本地运行中的 Codex 会话，并把状态变化放到 macOS 的 Dynamic Island 风格浮层里。它适合长期把 Codex 跑在终端里的用户，让你不用一直盯着终端窗口，也能及时看到状态、审批请求和最近上下文。
+Vibe Island 用来盯住本地运行中的 Codex 会话，并把状态变化放到 macOS 的 Dynamic Island 风格浮层里。它适合长期把 Codex 跑在终端里的用户，让你不用一直盯着终端窗口，也能及时看到状态、审批请求和最近上下文。
 
 ## 功能概览
 
@@ -47,11 +47,13 @@ xcodebuild -scheme CodexIsland -configuration Debug build
 ./scripts/build.sh
 ```
 
-导出的应用位于 `build/export/Codex Island.app`。
+导出的 Vibe Island 应用位于 `build/export/Codex Island.app`。
+
+如果当前机器没有配置 Apple 团队，`./scripts/build.sh` 会先完成归档，再导出一个未签名的 `.app`，用于本地使用或手工签名。要生成签过 `Developer ID` 的导出包，请在执行时传入 `DEVELOPMENT_TEAM=<YourTeamID>` 或 `CODEX_ISLAND_TEAM_ID=<YourTeamID>`。
 
 ## 工作原理
 
-首次启动时，Codex Island 会把受管的 hook 脚本安装到 `~/.codex/hooks/`，并更新 `~/.codex/hooks.json`。hook 脚本会把 Codex 的事件通过 Unix Domain Socket 转发给应用，应用再结合 transcript 信息做状态对账，以保持会话展示尽量准确。
+首次启动时，Vibe Island 会把受管的 hook 脚本安装到 `~/.codex/hooks/`，并更新 `~/.codex/hooks.json`。hook 脚本会把 Codex 的事件通过 Unix Domain Socket 转发给应用，应用再结合 transcript 信息做状态对账，以保持会话展示尽量准确。
 
 当前实现仍然是以 macOS 进程内的 hooks 流程为主。仓库里的 `sidecar/` 目录是预留给后续 Rust sidecar 的脚手架，计划承接 transcript 解析、状态聚合和本地 IPC 等职责。
 
@@ -86,11 +88,13 @@ xcodebuild -scheme CodexIsland -configuration Debug build
 ./scripts/create-release.sh
 ```
 
+`./scripts/create-release.sh` 默认假设输入的是已经完成 `Developer ID` 签名的应用。如果你前一步只做了未签名的本地导出，需要先带上有效 Team ID 重新执行 `./scripts/build.sh`，再继续发布流程。
+
 如果改动了 `CodexIsland/Services/Hooks/` 或 `CodexIsland/Resources/codex-island-state.py`，要把它视为会直接影响用户本地 Codex 环境的高风险改动，务必手工验证。
 
 ## 致谢
 
-Codex Island 建立在原项目 [`farouqaldori/claude-island`](https://github.com/farouqaldori/claude-island) 的思路和早期实现之上。感谢 Farouq Aldori 以及上游贡献者打下基础，这个面向 Codex 的版本是在那套工作的延续上继续演进的。
+Vibe Island 建立在原项目 [`farouqaldori/claude-island`](https://github.com/farouqaldori/claude-island) 的思路和早期实现之上。感谢 Farouq Aldori 以及上游贡献者打下基础，这个面向 Codex 的版本是在那套工作的延续上继续演进的。
 
 ## 许可证
 

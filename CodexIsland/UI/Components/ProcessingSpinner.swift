@@ -9,12 +9,16 @@ import Combine
 import SwiftUI
 
 struct ProcessingSpinner: View {
+    let color: Color
     @State private var phase: Int = 0
 
     private let symbols = ["·", "✢", "✳", "∗", "✻", "✽"]
-    private let color = TerminalColors.prompt
 
     private let timer = Timer.publish(every: 0.15, on: .main, in: .common).autoconnect()
+
+    init(color: Color = TerminalColors.prompt) {
+        self.color = color
+    }
 
     var body: some View {
         Text(symbols[phase % symbols.count])

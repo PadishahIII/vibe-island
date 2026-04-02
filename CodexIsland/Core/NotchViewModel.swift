@@ -37,6 +37,11 @@ enum NotchContentType: Equatable {
     }
 }
 
+private enum PendingBarAction {
+    case open
+    case collapse
+}
+
 @MainActor
 class NotchViewModel: ObservableObject {
     // MARK: - Published State
@@ -74,12 +79,12 @@ class NotchViewModel: ObservableObject {
             // Compact size for settings menu
             return CGSize(
                 width: min(screenRect.width * 0.4, 480),
-                height: 420 + screenSelector.expandedPickerHeight + soundSelector.expandedPickerHeight
+                height: 432 + screenSelector.expandedPickerHeight + soundSelector.expandedPickerHeight
             )
         case .instances:
             return CGSize(
                 width: min(screenRect.width * 0.4, 480),
-                height: 320
+                height: 404
             )
         }
     }
@@ -95,6 +100,9 @@ class NotchViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private let events = EventMonitors.shared
     private var hoverTimer: DispatchWorkItem?
+    private var closedBarInteractionWidth: CGFloat
+    private var isDraggingBar = false
+    private var pendingBarAction: PendingBarAction?
 
     // MARK: - Initialization
 
@@ -105,6 +113,7 @@ class NotchViewModel: ObservableObject {
             windowHeight: windowHeight
         )
         self.hasPhysicalNotch = hasPhysicalNotch
+        self.closedBarInteractionWidth = max(deviceNotchRect.width + 44, 180)
         setupEventHandlers()
         observeSelectors()
     }
@@ -131,8 +140,22 @@ class NotchViewModel: ObservableObject {
 
         events.mouseDown
             .receive(on: DispatchQueue.main)
+            .sink { [weak self] event in
+                self?.handleMouseDown(event)
+            }
+            .store(in: &cancellables)
+
+        events.mouseDragged
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] location in
+                self?.handleMouseDragged(location)
+            }
+            .store(in: &cancellables)
+
+        events.mouseUp
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                self?.handleMouseDown()
+                self?.handleMouseUp()
             }
             .store(in: &cancellables)
     }
@@ -146,51 +169,152 @@ class NotchViewModel: ObservableObject {
     /// The chat session we're viewing (persists across close/open)
     private var currentChatSession: SessionState?
 
+    private var closedBarHeight: CGFloat {
+        max(deviceNotchRect.height, 30)
+    }
+
+    private var openedBarHeight: CGFloat {
+        max(deviceNotchRect.height + 10, 34)
+    }
+
+    private var openedBarWidth: CGFloat {
+        min(max(closedBarInteractionWidth + 32, deviceNotchRect.width + 72), openedSize.width - 72)
+    }
+
+    var openedPanelRectInWindow: CGRect {
+        geometry.openedWindowRect(for: openedSize)
+    }
+
+    var closedBarRectInWindow: CGRect {
+        geometry.closedBarWindowRect(width: closedBarInteractionWidth, height: closedBarHeight)
+    }
+
+    private func isPointInCollapsedBar(_ point: CGPoint) -> Bool {
+        geometry.isPointInClosedBar(
+            point,
+            width: closedBarInteractionWidth,
+            height: closedBarHeight
+        )
+    }
+
+    private func isPointInOpenedCollapseBar(_ point: CGPoint) -> Bool {
+        geometry.isPointInOpenedHeader(
+            point,
+            size: openedSize,
+            width: openedBarWidth,
+            height: openedBarHeight
+        )
+    }
+
     private func handleMouseMove(_ location: CGPoint) {
-        let inNotch = geometry.isPointInNotch(location)
+        guard !isDraggingBar else { return }
+
+        let inClosedBar = isPointInCollapsedBar(location)
         let inOpened = status == .opened && geometry.isPointInOpenedPanel(location, size: openedSize)
 
-        let newHovering = inNotch || inOpened
+        let newHovering = inClosedBar || inOpened
 
         // Only update if changed to prevent unnecessary re-renders
         guard newHovering != isHovering else { return }
 
         isHovering = newHovering
 
-        // Cancel any pending hover timer
         hoverTimer?.cancel()
         hoverTimer = nil
 
-        // Start hover timer to auto-expand after 1 second
-        if isHovering && (status == .closed || status == .popping) {
-            let workItem = DispatchWorkItem { [weak self] in
-                guard let self = self, self.isHovering else { return }
-                self.notchOpen(reason: .hover)
+        if isHovering {
+            if status == .closed || status == .popping {
+                notchOpen(reason: .hover)
             }
-            hoverTimer = workItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: workItem)
+        } else if status == .opened && openReason != .boot {
+            notchClose()
         }
     }
 
-    private func handleMouseDown() {
+    private func handleMouseDown(_ event: NSEvent) {
         let location = NSEvent.mouseLocation
+        let isPanelClick = isEventFromActiveNotchWindow(event)
+        pendingBarAction = nil
+        isDraggingBar = false
+
+        if draggableBarContains(location) {
+            AppDelegate.shared?.beginWindowDrag(at: location)
+        } else {
+            AppDelegate.shared?.cancelWindowDrag()
+        }
 
         switch status {
         case .opened:
+            if isPanelClick {
+                if isPointInOpenedCollapseBar(location) && !isInChatMode {
+                    pendingBarAction = .collapse
+                }
+                return
+            }
+
             if geometry.isPointOutsidePanel(location, size: openedSize) {
+                AppDelegate.shared?.cancelWindowDrag()
                 notchClose()
                 // Re-post the click so it reaches the window/app behind us
                 repostClickAt(location)
-            } else if geometry.notchScreenRect.contains(location) {
-                // Clicking notch while opened - only close if NOT in chat mode
-                if !isInChatMode {
-                    notchClose()
-                }
             }
         case .closed, .popping:
-            if geometry.isPointInNotch(location) {
-                notchOpen(reason: .click)
+            if isPointInCollapsedBar(location) {
+                pendingBarAction = .open
             }
+        }
+    }
+
+    private func isEventFromActiveNotchWindow(_ event: NSEvent) -> Bool {
+        guard let notchWindow = AppDelegate.shared?.windowController?.window else {
+            return false
+        }
+
+        if let eventWindow = event.window {
+            return eventWindow === notchWindow
+        }
+
+        return event.windowNumber == notchWindow.windowNumber
+    }
+
+    private func handleMouseDragged(_ location: CGPoint) {
+        if AppDelegate.shared?.updateWindowDrag(to: location) == true {
+            isDraggingBar = true
+            pendingBarAction = nil
+        }
+    }
+
+    private func handleMouseUp() {
+        let didDragWindow = AppDelegate.shared?.endWindowDrag() ?? false
+        let pendingAction = pendingBarAction
+        pendingBarAction = nil
+
+        let wasDraggingBar = isDraggingBar || didDragWindow
+        isDraggingBar = false
+
+        if wasDraggingBar {
+            handleMouseMove(NSEvent.mouseLocation)
+            return
+        }
+
+        switch pendingAction {
+        case .open:
+            notchOpen(reason: .click)
+        case .collapse:
+            if !isInChatMode {
+                notchClose()
+            }
+        case .none:
+            break
+        }
+    }
+
+    private func draggableBarContains(_ point: CGPoint) -> Bool {
+        switch status {
+        case .opened:
+            return isPointInOpenedCollapseBar(point)
+        case .closed, .popping:
+            return isPointInCollapsedBar(point)
         }
     }
 
@@ -291,5 +415,9 @@ class NotchViewModel: ObservableObject {
             guard let self = self, self.openReason == .boot else { return }
             self.notchClose()
         }
+    }
+
+    func updateClosedBarInteractionWidth(_ width: CGFloat) {
+        closedBarInteractionWidth = max(width, deviceNotchRect.width + 36)
     }
 }

@@ -10,6 +10,28 @@ import Foundation
 actor SessionTranscriptParser {
     static let shared = SessionTranscriptParser()
 
+    private var emptyConversationInfo: ConversationInfo {
+        ConversationInfo(
+            summary: nil,
+            lastMessage: nil,
+            lastMessageRole: nil,
+            lastToolName: nil,
+            firstUserMessage: nil,
+            lastUserMessageDate: nil
+        )
+    }
+
+    private var emptyIncrementalResult: ConversationParser.IncrementalParseResult {
+        ConversationParser.IncrementalParseResult(
+            newMessages: [],
+            allMessages: [],
+            completedToolIds: [],
+            toolResults: [:],
+            structuredResults: [:],
+            clearDetected: false
+        )
+    }
+
     func parse(session: SessionState) async -> ConversationInfo {
         switch session.provider {
         case .claude:
@@ -21,6 +43,8 @@ actor SessionTranscriptParser {
             )
         case .opencode:
             return await OpencodeConversationParser.shared.parse(sessionId: session.sessionId)
+        case .iterm2, .kitty, .alacritty:
+            return emptyConversationInfo
         }
     }
 
@@ -38,6 +62,8 @@ actor SessionTranscriptParser {
             )
         case .opencode:
             return await OpencodeConversationParser.shared.parseFullConversation(sessionId: session.sessionId)
+        case .iterm2, .kitty, .alacritty:
+            return []
         }
     }
 
@@ -55,6 +81,8 @@ actor SessionTranscriptParser {
             )
         case .opencode:
             return await OpencodeConversationParser.shared.parseIncremental(sessionId: session.sessionId)
+        case .iterm2, .kitty, .alacritty:
+            return emptyIncrementalResult
         }
     }
 
@@ -69,6 +97,8 @@ actor SessionTranscriptParser {
             )
         case .opencode:
             return await OpencodeConversationParser.shared.completedToolIds(sessionId: session.sessionId)
+        case .iterm2, .kitty, .alacritty:
+            return []
         }
     }
 
@@ -83,6 +113,8 @@ actor SessionTranscriptParser {
             )
         case .opencode:
             return await OpencodeConversationParser.shared.toolResults(sessionId: session.sessionId)
+        case .iterm2, .kitty, .alacritty:
+            return [:]
         }
     }
 
@@ -97,6 +129,8 @@ actor SessionTranscriptParser {
             )
         case .opencode:
             return await OpencodeConversationParser.shared.structuredResults(sessionId: session.sessionId)
+        case .iterm2, .kitty, .alacritty:
+            return [:]
         }
     }
 }

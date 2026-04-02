@@ -25,6 +25,7 @@ struct SessionState: Equatable, Identifiable, Sendable {
     var tty: String?
     var terminalName: String?
     var isInTmux: Bool
+    var isFocusedTerminalSession: Bool
 
     // MARK: - State Machine
 
@@ -77,6 +78,7 @@ struct SessionState: Equatable, Identifiable, Sendable {
         tty: String? = nil,
         terminalName: String? = nil,
         isInTmux: Bool = false,
+        isFocusedTerminalSession: Bool = false,
         phase: SessionPhase = .idle,
         chatItems: [ChatHistoryItem] = [],
         toolTracker: ToolTracker = ToolTracker(),
@@ -98,6 +100,7 @@ struct SessionState: Equatable, Identifiable, Sendable {
         self.tty = tty
         self.terminalName = terminalName
         self.isInTmux = isInTmux
+        self.isFocusedTerminalSession = isFocusedTerminalSession
         self.phase = phase
         self.chatItems = chatItems
         self.toolTracker = toolTracker
@@ -191,6 +194,18 @@ struct SessionState: Equatable, Identifiable, Sendable {
     /// Whether the session can be interacted with
     var canInteract: Bool {
         phase.needsAttention
+    }
+
+    var isTerminalSession: Bool {
+        provider.isTerminalProvider
+    }
+
+    var supportsChat: Bool {
+        provider.supportsChat
+    }
+
+    var canSendMessages: Bool {
+        !isTerminalSession && tty != nil
     }
 }
 

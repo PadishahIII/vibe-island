@@ -716,6 +716,8 @@ actor SessionStore {
                     agentId: taskResult.agentId,
                     cwd: cwd
                 )
+            case .iterm2, .kitty, .alacritty:
+                subagentToolInfos = []
             }
 
             guard !subagentToolInfos.isEmpty else { continue }

@@ -13,9 +13,12 @@ class EventMonitors {
 
     let mouseLocation = CurrentValueSubject<CGPoint, Never>(.zero)
     let mouseDown = PassthroughSubject<NSEvent, Never>()
+    let mouseUp = PassthroughSubject<NSEvent, Never>()
+    let mouseDragged = PassthroughSubject<CGPoint, Never>()
 
     private var mouseMoveMonitor: EventMonitor?
     private var mouseDownMonitor: EventMonitor?
+    private var mouseUpMonitor: EventMonitor?
     private var mouseDraggedMonitor: EventMonitor?
 
     private init() {
@@ -33,8 +36,15 @@ class EventMonitors {
         }
         mouseDownMonitor?.start()
 
+        mouseUpMonitor = EventMonitor(mask: .leftMouseUp) { [weak self] event in
+            self?.mouseUp.send(event)
+        }
+        mouseUpMonitor?.start()
+
         mouseDraggedMonitor = EventMonitor(mask: .leftMouseDragged) { [weak self] _ in
-            self?.mouseLocation.send(NSEvent.mouseLocation)
+            let location = NSEvent.mouseLocation
+            self?.mouseLocation.send(location)
+            self?.mouseDragged.send(location)
         }
         mouseDraggedMonitor?.start()
     }
@@ -42,6 +52,7 @@ class EventMonitors {
     deinit {
         mouseMoveMonitor?.stop()
         mouseDownMonitor?.stop()
+        mouseUpMonitor?.stop()
         mouseDraggedMonitor?.stop()
     }
 }

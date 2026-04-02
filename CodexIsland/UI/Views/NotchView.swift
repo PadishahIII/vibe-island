@@ -106,6 +106,16 @@ struct NotchView: View {
         closedNotchSize.width + expansionWidth
     }
 
+    private var collapsedBarHitWidth: CGFloat {
+        if showClosedActivity {
+            let sideExpansion = 2 * max(0, closedNotchSize.height - 12) + 20
+            let permissionExpansion: CGFloat = hasPendingPermission ? 18 : 0
+            return max(closedNotchSize.width + sideExpansion + permissionExpansion + (isBouncing ? 16 : 0), 200)
+        }
+
+        return max(closedContentWidth + 36, closedNotchSize.width + 44)
+    }
+
     // MARK: - Corner Radii
 
     private var topCornerRadius: CGFloat {
@@ -190,6 +200,7 @@ struct NotchView: View {
         .preferredColorScheme(.dark)
         .onAppear {
             sessionMonitor.startMonitoring()
+            viewModel.updateClosedBarInteractionWidth(collapsedBarHitWidth)
             // On non-notched devices, keep visible so users have a target to interact with
             if !viewModel.hasPhysicalNotch {
                 isVisible = true
@@ -205,12 +216,36 @@ struct NotchView: View {
             handleProcessingChange()
             handleWaitingForInputChange(instances)
         }
+        .onChange(of: collapsedBarHitWidth) { _, newValue in
+            viewModel.updateClosedBarInteractionWidth(newValue)
+        }
     }
 
     // MARK: - Notch Layout
 
     private var isProcessing: Bool {
         activityCoordinator.expandingActivity.show && activityCoordinator.expandingActivity.type == .codex
+    }
+
+    private var dominantActivitySession: SessionState? {
+        sessionMonitor.instances.sorted { lhs, rhs in
+            let lhsPriority = activityPriority(lhs.phase)
+            let rhsPriority = activityPriority(rhs.phase)
+            if lhsPriority != rhsPriority {
+                return lhsPriority < rhsPriority
+            }
+            return lhs.lastActivity > rhs.lastActivity
+        }.first
+    }
+
+    private var activityAccentColor: Color {
+        if let activitySession = dominantActivitySession {
+            return SessionVisualStyle.accentColor(
+                provider: activitySession.provider,
+                phase: activitySession.phase
+            )
+        }
+        return TerminalColors.prompt
     }
 
     /// Whether to show the expanded closed state (processing, pending permission, or waiting for input)
@@ -249,7 +284,7 @@ struct NotchView: View {
             // Left side - crab + optional permission indicator (visible when processing, pending, or waiting for input)
             if showClosedActivity {
                 HStack(spacing: 4) {
-                    CodexCrabIcon(size: 14, animateLegs: isProcessing)
+                    CodexCrabIcon(size: 14, color: activityAccentColor, animateLegs: isProcessing)
                         .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: showClosedActivity)
 
                     // Permission indicator only (amber) - waiting for input shows checkmark on right
@@ -281,7 +316,7 @@ struct NotchView: View {
             // Right side - spinner when processing/pending, checkmark when waiting for input
             if showClosedActivity {
                 if isProcessing || hasPendingPermission {
-                    ProcessingSpinner()
+                    ProcessingSpinner(color: hasPendingPermission ? TerminalColors.amber : activityAccentColor)
                         .matchedGeometryEffect(id: "spinner", in: activityNamespace, isSource: showClosedActivity)
                         .frame(width: viewModel.status == .opened ? 20 : sideWidth)
                 } else if hasWaitingForInput {
@@ -307,7 +342,7 @@ struct NotchView: View {
             // Show static crab only if not showing activity in headerRow
             // (headerRow handles crab + indicator when showClosedActivity is true)
             if !showClosedActivity {
-                CodexCrabIcon(size: 14)
+                CodexCrabIcon(size: 14, color: activityAccentColor)
                     .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: !showClosedActivity)
                     .padding(.leading, 8)
             }
@@ -412,6 +447,19 @@ struct NotchView: View {
                     isVisible = false
                 }
             }
+        }
+    }
+
+    private func activityPriority(_ phase: SessionPhase) -> Int {
+        switch phase {
+        case .processing, .compacting:
+            return 0
+        case .waitingForApproval:
+            return 1
+        case .waitingForInput:
+            return 2
+        case .idle, .ended:
+            return 3
         }
     }
 

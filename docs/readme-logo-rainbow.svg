@@ -1,0 +1,44 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="rainbow" x1="92" y1="844" x2="932" y2="232" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF6B6B"/>
+      <stop offset="0.18" stop-color="#FF9F43"/>
+      <stop offset="0.34" stop-color="#FECA57"/>
+      <stop offset="0.52" stop-color="#1DD1A1"/>
+      <stop offset="0.72" stop-color="#48DBFB"/>
+      <stop offset="1" stop-color="#5F27CD"/>
+    </linearGradient>
+    <radialGradient id="leftGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(182 726) rotate(-18) scale(336 248)">
+      <stop stop-color="#FFFFFF" stop-opacity="0.72"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="leftRail" x1="64" y1="426" x2="116" y2="426" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.96"/>
+      <stop offset="0.52" stop-color="#FFFFFF" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="16" y="16" width="992" height="992" rx="176" fill="#111111"/>
+
+  <rect x="56" y="580" width="912" height="360" rx="140" fill="url(#rainbow)"/>
+  <rect x="64" y="112" width="52" height="628" rx="26" fill="url(#rainbow)"/>
+  <rect x="908" y="112" width="52" height="628" rx="26" fill="url(#rainbow)"/>
+  <rect x="56" y="580" width="912" height="360" rx="140" fill="url(#leftGlow)"/>
+  <rect x="64" y="112" width="52" height="628" rx="26" fill="url(#leftRail)"/>
+
+  <rect x="80" y="60" width="864" height="620" rx="116" fill="#0F0F0F"/>
+
+  <g fill="#56C7DA">
+    <rect x="420" y="286" width="184" height="76"/>
+    <rect x="394" y="336" width="26" height="52"/>
+    <rect x="604" y="336" width="26" height="52"/>
+    <rect x="438" y="362" width="148" height="64"/>
+    <rect x="438" y="426" width="28" height="94"/>
+    <rect x="492" y="426" width="28" height="94"/>
+    <rect x="540" y="426" width="28" height="94"/>
+    <rect x="594" y="426" width="28" height="94"/>
+  </g>
+  <rect x="468" y="332" width="30" height="30" fill="#0F0F0F"/>
+  <rect x="526" y="332" width="30" height="30" fill="#0F0F0F"/>
+</svg>

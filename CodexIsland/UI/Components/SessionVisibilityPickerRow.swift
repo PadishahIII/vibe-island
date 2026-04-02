@@ -1,45 +1,44 @@
 //
-//  ScreenPickerRow.swift
+//  SessionVisibilityPickerRow.swift
 //  CodexIsland
 //
-//  Screen selection picker for settings menu
+//  Provider visibility picker for the settings menu.
 //
 
 import SwiftUI
 
-struct ScreenPickerRow: View {
-    @ObservedObject var screenSelector: ScreenSelector
+struct SessionVisibilityPickerRow: View {
+    @ObservedObject var visibilitySelector: SessionVisibilitySelector
     @State private var isHovered = false
 
     private var isExpanded: Bool {
-        get { screenSelector.isPickerExpanded }
+        visibilitySelector.isPickerExpanded
     }
 
     private func setExpanded(_ value: Bool) {
-        screenSelector.isPickerExpanded = value
+        visibilitySelector.isPickerExpanded = value
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Main row - shows current selection
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     setExpanded(!isExpanded)
                 }
             } label: {
                 HStack(spacing: 10) {
-                    Image(systemName: "display")
+                    Image(systemName: "line.3.horizontal.decrease.circle")
                         .font(.system(size: 12))
                         .foregroundColor(textColor)
                         .frame(width: 16)
 
-                    Text("Screen")
+                    Text("Session Sources")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(textColor)
 
                     Spacer()
 
-                    Text(currentSelectionLabel)
+                    Text(visibilitySelector.currentSelectionLabel)
                         .font(.system(size: 11))
                         .foregroundColor(.white.opacity(0.4))
                         .lineLimit(1)
@@ -60,31 +59,14 @@ struct ScreenPickerRow: View {
             .buttonStyle(.plain)
             .onHover { isHovered = $0 }
 
-            // Expanded screen list
             if isExpanded {
                 VStack(spacing: 2) {
-                    // Automatic option
-                    ScreenOptionRow(
-                        label: "Automatic",
-                        sublabel: "Built-in or Main",
-                        isSelected: screenSelector.selectionMode == .automatic
-                    ) {
-                        screenSelector.selectAutomatic()
-                        triggerWindowRecreation()
-                        collapseAfterDelay()
-                    }
-
-                    // Individual screens
-                    ForEach(screenSelector.availableScreens, id: \.self) { screen in
-                        ScreenOptionRow(
-                            label: screen.localizedName,
-                            sublabel: screenSublabel(for: screen),
-                            isSelected: screenSelector.selectionMode == .specificScreen &&
-                                       screenSelector.isSelected(screen)
+                    ForEach(SessionProvider.visibilityOptions, id: \.self) { provider in
+                        SessionVisibilityOptionRow(
+                            provider: provider,
+                            isSelected: visibilitySelector.isVisible(provider)
                         ) {
-                            screenSelector.selectScreen(screen)
-                            triggerWindowRecreation()
-                            collapseAfterDelay()
+                            visibilitySelector.toggle(provider)
                         }
                     }
                 }
@@ -94,55 +76,13 @@ struct ScreenPickerRow: View {
         }
     }
 
-    private var currentSelectionLabel: String {
-        switch screenSelector.selectionMode {
-        case .automatic:
-            return "Auto"
-        case .specificScreen:
-            if let screen = screenSelector.selectedScreen {
-                return screen.localizedName
-            }
-            return "Auto"
-        }
-    }
-
     private var textColor: Color {
         .white.opacity(isHovered ? 1.0 : 0.7)
     }
-
-    private func screenSublabel(for screen: NSScreen) -> String? {
-        var parts: [String] = []
-        if screen.isBuiltinDisplay {
-            parts.append("Built-in")
-        }
-        if screen == NSScreen.main {
-            parts.append("Main")
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: ", ")
-    }
-
-    private func triggerWindowRecreation() {
-        // Notify to recreate the window
-        NotificationCenter.default.post(
-            name: NSApplication.didChangeScreenParametersNotification,
-            object: nil
-        )
-    }
-
-    private func collapseAfterDelay() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                setExpanded(false)
-            }
-        }
-    }
 }
 
-// MARK: - Screen Option Row
-
-private struct ScreenOptionRow: View {
-    let label: String
-    let sublabel: String?
+private struct SessionVisibilityOptionRow: View {
+    let provider: SessionProvider
     let isSelected: Bool
     let action: () -> Void
 
@@ -156,15 +96,13 @@ private struct ScreenOptionRow: View {
                     .frame(width: 6, height: 6)
 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(label)
+                    Text(provider.displayName)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.white.opacity(isHovered ? 1.0 : 0.7))
 
-                    if let sublabel = sublabel {
-                        Text(sublabel)
-                            .font(.system(size: 10))
-                            .foregroundColor(.white.opacity(0.4))
-                    }
+                    Text(provider.isTerminalProvider ? "Terminal sessions" : "Coding agent sessions")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.4))
                 }
 
                 Spacer()

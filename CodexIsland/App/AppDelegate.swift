@@ -8,6 +8,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowManager: WindowManager?
     private var screenObserver: ScreenObserver?
     private var updateCheckTimer: Timer?
+    private var isQuitting = false
 
     static var shared: AppDelegate?
     let updater: SPUUpdater
@@ -91,10 +92,55 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         _ = windowManager?.setupNotchWindow()
     }
 
+    func moveWindow(to screen: NSScreen) {
+        _ = windowManager?.moveWindow(to: screen)
+    }
+
+    func beginWindowDrag(at location: CGPoint) {
+        windowManager?.beginWindowDrag(at: location)
+    }
+
+    @discardableResult
+    func updateWindowDrag(to location: CGPoint) -> Bool {
+        windowManager?.updateWindowDrag(to: location) ?? false
+    }
+
+    @discardableResult
+    func endWindowDrag() -> Bool {
+        windowManager?.endWindowDrag() ?? false
+    }
+
+    func cancelWindowDrag() {
+        windowManager?.cancelWindowDrag()
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         Mixpanel.mainInstance().flush()
         updateCheckTimer?.invalidate()
+        TerminalSessionMonitor.shared.stop()
+        CodexSessionScanner.shared.stop()
+        OpencodeSessionScanner.shared.stop()
+        HookSocketServer.shared.stop()
         screenObserver = nil
+    }
+
+    func quitApplication() {
+        guard !isQuitting else { return }
+        isQuitting = true
+
+        updateCheckTimer?.invalidate()
+        TerminalSessionMonitor.shared.stop()
+        CodexSessionScanner.shared.stop()
+        OpencodeSessionScanner.shared.stop()
+        HookSocketServer.shared.stop()
+        Mixpanel.mainInstance().flush()
+
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 1.0) {
+            NSRunningApplication.current.forceTerminate()
+            exit(0)
+        }
+
+        NSApplication.shared.terminate(nil)
     }
 
     private func getOrCreateDistinctId() -> String {

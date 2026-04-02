@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="CodexIsland/Assets.xcassets/AppIcon.appiconset/icon_128x128.png" alt="Codex Island logo" width="100" height="100">
-  <h1 align="center">Codex Island</h1>
+  <img src="docs/readme-logo-rainbow.svg" alt="Vibe Island logo" width="100" height="100">
+  <h1 align="center">Vibe Island</h1>
   <p align="center">
     A macOS notch and menu bar companion for Codex CLI.
   </p>
@@ -11,7 +11,7 @@
   </p>
 </div>
 
-Codex Island keeps an eye on your local Codex sessions and surfaces state changes in a Dynamic Island-style overlay on macOS. It is designed for people who keep Codex running in the terminal and want lightweight visibility, fast approval handling, and quick access to recent conversation context.
+Vibe Island keeps an eye on your local Codex sessions and surfaces state changes in a Dynamic Island-style overlay on macOS. It is designed for people who keep Codex running in the terminal and want lightweight visibility, fast approval handling, and quick access to recent conversation context.
 
 ## What It Does
 
@@ -47,11 +47,13 @@ For a release build:
 ./scripts/build.sh
 ```
 
-The exported app bundle is written to `build/export/Codex Island.app`.
+The exported Vibe Island app bundle is written to `build/export/Codex Island.app`.
+
+If no Apple team is configured, `./scripts/build.sh` archives the app and exports an unsigned `.app` bundle for local use. To produce a signed `Developer ID` export, run it with `DEVELOPMENT_TEAM=<YourTeamID>` or `CODEX_ISLAND_TEAM_ID=<YourTeamID>`.
 
 ## How It Works
 
-On first launch, Codex Island installs a managed hook script into `~/.codex/hooks/` and updates `~/.codex/hooks.json`. The hook helper forwards Codex hook events to the app over a Unix domain socket, and the app reconciles those events with transcript data to keep session state accurate.
+On first launch, Vibe Island installs a managed hook script into `~/.codex/hooks/` and updates `~/.codex/hooks.json`. The hook helper forwards Codex hook events to the app over a Unix domain socket, and the app reconciles those events with transcript data to keep session state accurate.
 
 The current architecture is still hooks-first inside the macOS app process. The `sidecar/` directory is a reserved Rust scaffold for future work around transcript parsing, state aggregation, and IPC.
 
@@ -86,11 +88,13 @@ Open the project in Xcode for day-to-day work. The repository also includes rele
 ./scripts/create-release.sh
 ```
 
+`./scripts/create-release.sh` assumes the app has already been signed for `Developer ID`. If you only ran an unsigned local export, rerun `./scripts/build.sh` with a valid team ID before creating a release.
+
 If you change anything under `CodexIsland/Services/Hooks/` or `CodexIsland/Resources/codex-island-state.py`, treat it as user-impacting local environment behavior and verify it carefully.
 
 ## Acknowledgements
 
-Codex Island builds on the original ideas and earlier implementation work from [`farouqaldori/claude-island`](https://github.com/farouqaldori/claude-island). Thanks to Farouq Aldori and the upstream contributors for laying the foundation this Codex-focused version continues from.
+Vibe Island builds on the original ideas and earlier implementation work from [`farouqaldori/claude-island`](https://github.com/farouqaldori/claude-island). Thanks to Farouq Aldori and the upstream contributors for laying the foundation this Codex-focused version continues from.
 
 ## License
 
