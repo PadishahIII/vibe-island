@@ -19,6 +19,7 @@ struct TerminalSession: Identifiable, Equatable, Sendable {
     let subtitle: String?
     let focusPid: Int?
     let tty: String?
+    let workingDirectory: String?
 
     var locationLabel: String {
         if let tabIndex, tabIndex > 0 {

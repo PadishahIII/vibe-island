@@ -11,6 +11,12 @@ import SQLite3
 actor OpencodeSessionDatabase {
     static let shared = OpencodeSessionDatabase()
 
+    struct DirectoryRecord: Sendable {
+        let path: String
+        let updatedAt: Int64
+        let sessionCount: Int
+    }
+
     struct SessionRecord: Sendable {
         let id: String
         let parentId: String?
@@ -44,6 +50,7 @@ actor OpencodeSessionDatabase {
     }
 
     private let databasePath = NSHomeDirectory() + "/.local/share/opencode/opencode.db"
+    private let fileManager = FileManager.default
 
     private init() {}
 
@@ -92,6 +99,43 @@ actor OpencodeSessionDatabase {
                 ))
             }
             return sessions
+        } ?? []
+    }
+
+    func recentDirectories(limit: Int) -> [DirectoryRecord] {
+        withDatabase { db in
+            let sql = """
+            SELECT directory, MAX(time_updated) AS updated_at, COUNT(*) AS session_count
+            FROM session
+            GROUP BY directory
+            ORDER BY updated_at DESC
+            LIMIT ?
+            """
+
+            guard let statement = prepare(db: db, sql: sql) else {
+                return []
+            }
+            defer { sqlite3_finalize(statement) }
+
+            sqlite3_bind_int64(statement, 1, Int64(limit))
+
+            var records: [DirectoryRecord] = []
+            while sqlite3_step(statement) == SQLITE_ROW {
+                let path = text(from: statement, at: 0) ?? ""
+                guard directoryExists(path) else {
+                    continue
+                }
+
+                records.append(
+                    DirectoryRecord(
+                        path: path,
+                        updatedAt: sqlite3_column_int64(statement, 1),
+                        sessionCount: Int(sqlite3_column_int64(statement, 2))
+                    )
+                )
+            }
+
+            return records
         } ?? []
     }
 
@@ -339,6 +383,11 @@ actor OpencodeSessionDatabase {
         }
         return object
     }
+
+    private func directoryExists(_ path: String) -> Bool {
+        var isDirectory: ObjCBool = false
+        return fileManager.fileExists(atPath: path, isDirectory: &isDirectory) && isDirectory.boolValue
+    }
 }
 
-private let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+nonisolated(unsafe) private let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)

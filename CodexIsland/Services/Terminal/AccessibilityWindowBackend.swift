@@ -92,7 +92,8 @@ actor AccessibilityWindowBackend: TerminalBackend {
                 lastSeenAt: generatedAt,
                 subtitle: nil,
                 focusPid: Int(window.processID),
-                tty: nil
+                tty: nil,
+                workingDirectory: nil
             )
         }
 

@@ -94,7 +94,7 @@ final class TerminalSessionMonitor: ObservableObject {
         return SessionState(
             sessionId: session.id,
             provider: session.provider,
-            cwd: "/",
+            cwd: session.workingDirectory ?? "/",
             projectName: displayTitle,
             transcriptPath: nil,
             pid: session.focusPid,

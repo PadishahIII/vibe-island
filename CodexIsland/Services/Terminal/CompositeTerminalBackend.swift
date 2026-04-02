@@ -135,7 +135,8 @@ actor CompositeTerminalBackend {
                         lastSeenAt: session.lastSeenAt,
                         subtitle: session.subtitle,
                         focusPid: session.focusPid,
-                        tty: session.tty
+                        tty: session.tty,
+                        workingDirectory: session.workingDirectory
                     )
                 )
             }

@@ -26,12 +26,14 @@ enum NotchOpenReason {
 enum NotchContentType: Equatable {
     case instances
     case menu
+    case createSession
     case chat(SessionState)
 
     var id: String {
         switch self {
         case .instances: return "instances"
         case .menu: return "menu"
+        case .createSession: return "create-session"
         case .chat(let session): return "chat-\(session.sessionId)"
         }
     }
@@ -80,6 +82,11 @@ class NotchViewModel: ObservableObject {
             return CGSize(
                 width: min(screenRect.width * 0.4, 480),
                 height: 432 + screenSelector.expandedPickerHeight + soundSelector.expandedPickerHeight
+            )
+        case .createSession:
+            return CGSize(
+                width: min(screenRect.width * 0.45, 540),
+                height: 560
             )
         case .instances:
             return CGSize(
@@ -400,6 +407,14 @@ class NotchViewModel: ObservableObject {
             return
         }
         contentType = .chat(session)
+    }
+
+    func showCreateSession() {
+        contentType = .createSession
+    }
+
+    func showInstances() {
+        contentType = .instances
     }
 
     /// Go back to instances list and clear saved chat state

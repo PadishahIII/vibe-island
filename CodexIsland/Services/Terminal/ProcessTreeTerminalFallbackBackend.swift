@@ -26,6 +26,7 @@ actor ProcessTreeTerminalFallbackBackend: TerminalBackend {
         let subtitle: String
         let tty: String
         let appPid: Int
+        let workingDirectory: String?
     }
 
     private let bundleIdentifiers: [String]
@@ -87,7 +88,8 @@ actor ProcessTreeTerminalFallbackBackend: TerminalBackend {
                 lastSeenAt: generatedAt,
                 subtitle: session.subtitle,
                 focusPid: session.appPid,
-                tty: session.tty
+                tty: session.tty,
+                workingDirectory: session.workingDirectory
             )
         }
 
@@ -141,7 +143,8 @@ actor ProcessTreeTerminalFallbackBackend: TerminalBackend {
                 title: title,
                 subtitle: "\(displayName) · \(primary.tty)",
                 tty: primary.tty,
-                appPid: primary.appPid
+                appPid: primary.appPid,
+                workingDirectory: ProcessTreeBuilder.shared.getWorkingDirectory(forPid: primary.pid)
             )
         }
         .sorted { lhs, rhs in

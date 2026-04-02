@@ -89,7 +89,8 @@ actor ItermAppleScriptBackend: TerminalBackend {
                         lastSeenAt: generatedAt,
                         subtitle: nil,
                         focusPid: nil,
-                        tty: nil
+                        tty: nil,
+                        workingDirectory: nil
                     )
                 )
             }

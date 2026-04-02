@@ -11,6 +11,12 @@ import SQLite3
 actor CodexSessionDatabase {
     static let shared = CodexSessionDatabase()
 
+    struct DirectoryRecord: Sendable {
+        let path: String
+        let updatedAt: Int64
+        let sessionCount: Int
+    }
+
     struct ThreadRecord: Sendable {
         let id: String
         let cwd: String
@@ -21,6 +27,7 @@ actor CodexSessionDatabase {
     }
 
     private let databasePath = NSHomeDirectory() + "/.codex/state_5.sqlite"
+    private let fileManager = FileManager.default
 
     private init() {}
 
@@ -57,6 +64,44 @@ actor CodexSessionDatabase {
             return threads.filter {
                 !$0.rolloutPath.isEmpty && FileManager.default.fileExists(atPath: $0.rolloutPath)
             }
+        } ?? []
+    }
+
+    func recentDirectories(limit: Int) -> [DirectoryRecord] {
+        withDatabase { db in
+            let sql = """
+            SELECT cwd, MAX(updated_at) AS updated_at, COUNT(*) AS session_count
+            FROM threads
+            WHERE archived = 0
+            GROUP BY cwd
+            ORDER BY updated_at DESC
+            LIMIT ?
+            """
+
+            guard let statement = prepare(db: db, sql: sql) else {
+                return []
+            }
+            defer { sqlite3_finalize(statement) }
+
+            sqlite3_bind_int64(statement, 1, Int64(limit))
+
+            var records: [DirectoryRecord] = []
+            while sqlite3_step(statement) == SQLITE_ROW {
+                let path = text(from: statement, at: 0) ?? ""
+                guard directoryExists(path) else {
+                    continue
+                }
+
+                records.append(
+                    DirectoryRecord(
+                        path: path,
+                        updatedAt: sqlite3_column_int64(statement, 1),
+                        sessionCount: Int(sqlite3_column_int64(statement, 2))
+                    )
+                )
+            }
+
+            return records
         } ?? []
     }
 
@@ -99,6 +144,11 @@ actor CodexSessionDatabase {
         }
         return String(cString: raw)
     }
+
+    private func directoryExists(_ path: String) -> Bool {
+        var isDirectory: ObjCBool = false
+        return fileManager.fileExists(atPath: path, isDirectory: &isDirectory) && isDirectory.boolValue
+    }
 }
 
-private let codexSQLiteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+nonisolated(unsafe) private let codexSQLiteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)

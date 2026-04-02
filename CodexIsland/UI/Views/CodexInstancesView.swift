@@ -16,6 +16,9 @@ struct CodexInstancesView: View {
 
     var body: some View {
         VStack(spacing: 10) {
+            CreateSessionLauncherRow {
+                viewModel.showCreateSession()
+            }
             SessionVisibilityPickerRow(visibilitySelector: visibilitySelector)
             SessionListControlsRow(presentationController: presentationController)
 
@@ -195,6 +198,54 @@ private struct SessionSection: Identifiable {
     let id: String
     let title: String?
     let sessions: [SessionState]
+}
+
+private struct CreateSessionLauncherRow: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(TerminalColors.prompt)
+                    .frame(width: 16)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Create Session")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.82))
+                    Text("Launch Codex, OpenCode, or a terminal window in Kitty")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.35))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                Text("New")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundColor(.black.opacity(0.75))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.white.opacity(0.92))
+                    .clipShape(Capsule())
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.white.opacity(0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.white.opacity(0.06), lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
 }
 
 private enum SessionPhaseGroup: String, CaseIterable {
