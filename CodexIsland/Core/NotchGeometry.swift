@@ -84,9 +84,24 @@ struct NotchGeometry: Sendable {
             .contains(point)
     }
 
+    private func openedPanelHoverScreenRect(for size: CGSize) -> CGRect {
+        let panelRect = openedScreenRect(for: size)
+        return CGRect(
+            x: panelRect.minX - 14,
+            y: panelRect.minY - 28,
+            width: panelRect.width + 28,
+            height: panelRect.height + 36
+        )
+    }
+
     /// Check if a point is in the opened panel area
     func isPointInOpenedPanel(_ point: CGPoint, size: CGSize) -> Bool {
         openedScreenRect(for: size).contains(point)
+    }
+
+    /// Check if a point is inside the opened panel's hover grace area.
+    func isPointInOpenedPanelHoverArea(_ point: CGPoint, size: CGSize) -> Bool {
+        openedPanelHoverScreenRect(for: size).contains(point)
     }
 
     /// Check if a point is outside the opened panel (for closing)

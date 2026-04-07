@@ -81,7 +81,7 @@ class NotchViewModel: ObservableObject {
             // Compact size for settings menu
             return CGSize(
                 width: min(screenRect.width * 0.4, 480),
-                height: 432 + screenSelector.expandedPickerHeight + soundSelector.expandedPickerHeight
+                height: 460 + screenSelector.expandedPickerHeight + soundSelector.expandedPickerHeight
             )
         case .createSession:
             return CGSize(
@@ -106,7 +106,7 @@ class NotchViewModel: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
     private let events = EventMonitors.shared
-    private var hoverTimer: DispatchWorkItem?
+    private var hoverCloseTimer: DispatchWorkItem?
     private var closedBarInteractionWidth: CGFloat
     private var isDraggingBar = false
     private var pendingBarAction: PendingBarAction?
@@ -217,24 +217,25 @@ class NotchViewModel: ObservableObject {
         guard !isDraggingBar else { return }
 
         let inClosedBar = isPointInCollapsedBar(location)
-        let inOpened = status == .opened && geometry.isPointInOpenedPanel(location, size: openedSize)
+        let inOpened = status == .opened && geometry.isPointInOpenedPanelHoverArea(location, size: openedSize)
 
         let newHovering = inClosedBar || inOpened
 
-        // Only update if changed to prevent unnecessary re-renders
-        guard newHovering != isHovering else { return }
-
-        isHovering = newHovering
-
-        hoverTimer?.cancel()
-        hoverTimer = nil
-
         if isHovering {
+            cancelHoverClose()
+        }
+
+        // Only update if changed to prevent unnecessary re-renders
+        if newHovering != isHovering {
+            isHovering = newHovering
+        }
+
+        if newHovering {
             if status == .closed || status == .popping {
                 notchOpen(reason: .hover)
             }
         } else if status == .opened && openReason != .boot {
-            notchClose()
+            scheduleHoverClose()
         }
     }
 
@@ -243,6 +244,7 @@ class NotchViewModel: ObservableObject {
         let isPanelClick = isEventFromActiveNotchWindow(event)
         pendingBarAction = nil
         isDraggingBar = false
+        cancelHoverClose()
 
         if draggableBarContains(location) {
             AppDelegate.shared?.beginWindowDrag(at: location)
@@ -359,6 +361,7 @@ class NotchViewModel: ObservableObject {
     // MARK: - Actions
 
     func notchOpen(reason: NotchOpenReason = .unknown) {
+        cancelHoverClose()
         openReason = reason
         status = .opened
 
@@ -379,6 +382,7 @@ class NotchViewModel: ObservableObject {
     }
 
     func notchClose() {
+        cancelHoverClose()
         // Save chat session before closing if in chat mode
         if case .chat(let session) = contentType {
             if currentChatSession?.sessionId != session.sessionId {
@@ -443,5 +447,34 @@ class NotchViewModel: ObservableObject {
 
     func updateClosedBarInteractionWidth(_ width: CGFloat) {
         closedBarInteractionWidth = max(width, deviceNotchRect.width + 36)
+    }
+
+    private func scheduleHoverClose() {
+        cancelHoverClose()
+
+        let closeTask = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            guard self.status == .opened, self.openReason != .boot, !self.isDraggingBar else { return }
+
+            let location = NSEvent.mouseLocation
+            let stillHovering = self.isPointInCollapsedBar(location)
+                || self.geometry.isPointInOpenedPanelHoverArea(location, size: self.openedSize)
+
+            guard !stillHovering else {
+                self.isHovering = true
+                return
+            }
+
+            self.isHovering = false
+            self.notchClose()
+        }
+
+        hoverCloseTimer = closeTask
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18, execute: closeTask)
+    }
+
+    private func cancelHoverClose() {
+        hoverCloseTimer?.cancel()
+        hoverCloseTimer = nil
     }
 }
