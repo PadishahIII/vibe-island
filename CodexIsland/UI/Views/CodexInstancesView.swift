@@ -138,7 +138,7 @@ struct CodexInstancesView: View {
                                     session: session,
                                     onFocus: { focusSession(session) },
                                     onChat: { openChat(session) },
-                                    onRename: { renameSession(session) },
+                                    onRename: { title in renameSession(session, title: title) },
                                     onArchive: { archiveSession(session) },
                                     onApprove: { approveSession(session) },
                                     onReject: { rejectSession(session) }
@@ -194,8 +194,8 @@ struct CodexInstancesView: View {
         sessionMonitor.archiveSession(sessionId: session.sessionId)
     }
 
-    private func renameSession(_ session: SessionState) {
-        sessionMonitor.editSessionTitle(session)
+    private func renameSession(_ session: SessionState, title: String?) {
+        sessionMonitor.updateSessionTitle(title, for: session)
     }
 }
 
@@ -378,14 +378,17 @@ struct InstanceRow: View {
     let session: SessionState
     let onFocus: () -> Void
     let onChat: () -> Void
-    let onRename: () -> Void
+    let onRename: (String?) -> Void
     let onArchive: () -> Void
     let onApprove: () -> Void
     let onReject: () -> Void
 
     @State private var isHovered = false
+    @State private var isEditingTitle = false
+    @State private var titleDraft = ""
     @State private var spinnerPhase = 0
     @State private var isYabaiAvailable = false
+    @FocusState private var isTitleFieldFocused: Bool
 
     private let codexBlue = TerminalColors.prompt
     private let spinnerSymbols = ["·", "✢", "✳", "∗", "✻", "✽"]
@@ -417,21 +420,44 @@ struct InstanceRow: View {
                 HStack(spacing: 6) {
                     SessionProviderBadge(provider: session.provider, phase: session.phase)
 
-                    Text(session.displayTitle)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white)
-                        .lineLimit(1)
+                    if isEditingTitle {
+                        TextField(session.defaultDisplayTitle, text: $titleDraft)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.white)
+                            .focused($isTitleFieldFocused)
+                            .onSubmit {
+                                saveTitleEdit()
+                            }
+                    } else {
+                        Text(session.displayTitle)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                    }
                 }
 
-                if let terminalName = session.terminalName, !terminalName.isEmpty {
+                if isEditingTitle {
+                    Text("Leave empty to restore the original title")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.3))
+                        .lineLimit(1)
+                } else if let terminalName = session.terminalName, !terminalName.isEmpty {
                     Text(terminalName + (session.isInTmux ? " • tmux" : ""))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.3))
+                        .lineLimit(1)
+                } else if session.hasCustomTitle {
+                    Text(session.defaultDisplayTitle)
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(.white.opacity(0.3))
                         .lineLimit(1)
                 }
 
                 // Show tool call when waiting for approval, otherwise last activity
-                if isWaitingForApproval, let toolName = session.pendingToolName {
+                if isEditingTitle {
+                    EmptyView()
+                } else if isWaitingForApproval, let toolName = session.pendingToolName {
                     // Show tool name in amber + input on same line
                     HStack(spacing: 4) {
                         Text(MCPToolFormatter.formatToolName(toolName))
@@ -499,10 +525,21 @@ struct InstanceRow: View {
             Spacer(minLength: 0)
 
             // Action icons or approval buttons
-            if isTerminalSession {
+            if isEditingTitle {
+                HStack(spacing: 8) {
+                    IconButton(icon: "xmark") {
+                        cancelTitleEdit()
+                    }
+
+                    IconButton(icon: "checkmark") {
+                        saveTitleEdit()
+                    }
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            } else if isTerminalSession {
                 HStack(spacing: 8) {
                     IconButton(icon: "pencil") {
-                        onRename()
+                        beginTitleEdit()
                     }
 
                     IconButton(icon: "eye") {
@@ -518,7 +555,7 @@ struct InstanceRow: View {
                     }
 
                     IconButton(icon: "pencil") {
-                        onRename()
+                        beginTitleEdit()
                     }
 
                     // Go to Terminal button (only if yabai available)
@@ -545,7 +582,7 @@ struct InstanceRow: View {
                     }
 
                     IconButton(icon: "pencil") {
-                        onRename()
+                        beginTitleEdit()
                     }
 
                     // Focus icon (only for tmux instances with yabai)
@@ -570,6 +607,7 @@ struct InstanceRow: View {
         .padding(.vertical, 10)
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
+            guard !isEditingTitle else { return }
             if isTerminalSession {
                 onFocus()
             } else {
@@ -579,12 +617,50 @@ struct InstanceRow: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isWaitingForApproval)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(isHovered ? Color.white.opacity(0.06) : Color.clear)
+                .fill(isEditingTitle ? Color.white.opacity(0.08) : (isHovered ? Color.white.opacity(0.06) : Color.clear))
         )
         .onHover { isHovered = $0 }
+        .onAppear {
+            titleDraft = session.customTitle ?? session.displayTitle
+        }
+        .onChange(of: session.customTitle) { _, _ in
+            guard !isEditingTitle else { return }
+            titleDraft = session.customTitle ?? session.displayTitle
+        }
+        .onChange(of: session.displayTitle) { _, newValue in
+            guard !isEditingTitle else { return }
+            titleDraft = session.customTitle ?? newValue
+        }
+        .onChange(of: isEditingTitle) { _, isEditing in
+            if isEditing {
+                DispatchQueue.main.async {
+                    isTitleFieldFocused = true
+                }
+            } else {
+                isTitleFieldFocused = false
+            }
+        }
         .task {
             isYabaiAvailable = await WindowFinder.shared.isYabaiAvailable()
         }
+    }
+
+    private func beginTitleEdit() {
+        titleDraft = session.customTitle ?? session.displayTitle
+        isEditingTitle = true
+    }
+
+    private func cancelTitleEdit() {
+        titleDraft = session.customTitle ?? session.displayTitle
+        isEditingTitle = false
+    }
+
+    private func saveTitleEdit() {
+        let normalized = SessionTitleStore.normalizedTitle(titleDraft)
+        let titleToPersist = normalized == session.defaultDisplayTitle ? nil : normalized
+        onRename(titleToPersist)
+        titleDraft = titleToPersist ?? session.defaultDisplayTitle
+        isEditingTitle = false
     }
 
     @ViewBuilder

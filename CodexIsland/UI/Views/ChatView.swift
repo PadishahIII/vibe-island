@@ -25,7 +25,6 @@ struct ChatView: View {
     @State private var previousHistoryCount: Int = 0
     @State private var isBottomVisible: Bool = true
     @State private var isBackButtonHovered = false
-    @State private var isRenameButtonHovered = false
     @FocusState private var isInputFocused: Bool
 
     init(sessionId: String, initialSession: SessionState, sessionMonitor: CodexSessionMonitor, viewModel: NotchViewModel) {
@@ -218,21 +217,6 @@ struct ChatView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-
-            Button {
-                sessionMonitor.editSessionTitle(session)
-            } label: {
-                Image(systemName: "pencil")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(isRenameButtonHovered ? 0.85 : 0.45))
-                    .frame(width: 28, height: 28)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(isRenameButtonHovered ? Color.white.opacity(0.08) : Color.clear)
-                    )
-            }
-            .buttonStyle(.plain)
-            .onHover { isRenameButtonHovered = $0 }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
