@@ -67,7 +67,7 @@ struct CreateSessionView: View {
                 Text("Create Session")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(.white)
-                Text("Launch through the shared Kitty remote-control socket.")
+                Text("Launch through Kitty remote control.")
                     .font(.system(size: 11))
                     .foregroundColor(.white.opacity(0.4))
             }
@@ -114,14 +114,11 @@ struct CreateSessionView: View {
 
                     if let command = kittyStatus.suggestedLaunchCommand {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Start Kitty once in shared remote-control mode with:")
+                            Text("Start Kitty once with remote control enabled:")
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(.white.opacity(0.62))
 
-                            Text(command)
-                                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                                .foregroundColor(.white.opacity(0.88))
-                                .textSelection(.enabled)
+                            SelectableCodeBlock(text: command)
                                 .padding(10)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(

@@ -60,6 +60,14 @@ final class TerminalSessionMonitor: ObservableObject {
         }
     }
 
+    func refreshTitleOverrides() {
+        sessions = sessions.map { session in
+            var updated = session
+            updated.customTitle = SessionTitleStore.title(for: session.provider, sessionId: session.sessionId)
+            return updated
+        }
+    }
+
     private func refresh() {
         Task { @MainActor in
             await refreshSessions()

@@ -24,6 +24,8 @@ struct ChatView: View {
     @State private var newMessageCount: Int = 0
     @State private var previousHistoryCount: Int = 0
     @State private var isBottomVisible: Bool = true
+    @State private var isBackButtonHovered = false
+    @State private var isRenameButtonHovered = false
     @FocusState private var isInputFocused: Bool
 
     init(sessionId: String, initialSession: SessionState, sessionMonitor: CodexSessionMonitor, viewModel: NotchViewModel) {
@@ -154,6 +156,7 @@ struct ChatView: View {
                 // Check if permission was just accepted (transition from waitingForApproval to processing)
                 let wasWaiting = isWaitingForApproval
                 session = updated
+                viewModel.syncChatSession(updated)
                 let isNowProcessing = updated.phase == .processing
 
                 if wasWaiting && isNowProcessing {
@@ -184,34 +187,55 @@ struct ChatView: View {
 
     // MARK: - Header
 
-    @State private var isHeaderHovered = false
-
     private var chatHeader: some View {
-        Button {
-            viewModel.exitChat()
-        } label: {
-            HStack(spacing: 8) {
+        HStack(spacing: 8) {
+            Button {
+                viewModel.exitChat()
+            } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white.opacity(isHeaderHovered ? 1.0 : 0.6))
-                    .frame(width: 24, height: 24)
+                    .foregroundColor(.white.opacity(isBackButtonHovered ? 1.0 : 0.6))
+                    .frame(width: 28, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(isBackButtonHovered ? Color.white.opacity(0.08) : Color.clear)
+                    )
+            }
+            .buttonStyle(.plain)
+            .onHover { isBackButtonHovered = $0 }
 
+            VStack(alignment: .leading, spacing: session.hasCustomTitle ? 1 : 0) {
                 Text(session.displayTitle)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white.opacity(isHeaderHovered ? 1.0 : 0.85))
+                    .foregroundColor(.white.opacity(0.85))
                     .lineLimit(1)
 
-                Spacer()
+                if session.hasCustomTitle {
+                    Text(session.defaultDisplayTitle)
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.32))
+                        .lineLimit(1)
+                }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isHeaderHovered ? Color.white.opacity(0.08) : Color.clear)
-            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button {
+                sessionMonitor.editSessionTitle(session)
+            } label: {
+                Image(systemName: "pencil")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(isRenameButtonHovered ? 0.85 : 0.45))
+                    .frame(width: 28, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(isRenameButtonHovered ? Color.white.opacity(0.08) : Color.clear)
+                    )
+            }
+            .buttonStyle(.plain)
+            .onHover { isRenameButtonHovered = $0 }
         }
-        .buttonStyle(.plain)
-        .onHover { isHeaderHovered = $0 }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(Color.black.opacity(0.2))

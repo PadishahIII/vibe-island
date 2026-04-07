@@ -70,7 +70,10 @@ actor KittyHybridBackend: TerminalBackend {
         }
 
         if id.hasPrefix("rc:") {
-            try await remoteControlService.focusWindow(windowID: rawRemoteWindowID(from: id))
+            try await remoteControlService.focusWindow(
+                windowID: rawRemoteWindowID(from: id),
+                preferredProcessID: rawRemoteProcessID(from: id)
+            )
             return
         }
 
@@ -83,7 +86,7 @@ actor KittyHybridBackend: TerminalBackend {
         let windows = try await remoteControlService.currentWindows()
         let sessions = windows.map { window in
             TerminalSession(
-                id: "rc:\(window.windowID)",
+                id: remoteSessionID(for: window),
                 provider: provider,
                 displayIndex: window.windowID,
                 title: window.title.isEmpty ? "Kitty Window \(window.windowID)" : window.title,
@@ -131,5 +134,19 @@ actor KittyHybridBackend: TerminalBackend {
         }
 
         return Int(id.dropFirst(3)) ?? 0
+    }
+
+    private func rawRemoteProcessID(from id: String) -> pid_t? {
+        let parts = id.split(separator: ":", omittingEmptySubsequences: false)
+
+        guard parts.count >= 3, let value = Int32(parts[1]) else {
+            return nil
+        }
+
+        return value
+    }
+
+    private func remoteSessionID(for window: KittyRemoteWindowRecord) -> String {
+        "rc:\(window.endpoint.processID):\(window.windowID)"
     }
 }

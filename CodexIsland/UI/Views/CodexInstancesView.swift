@@ -138,6 +138,7 @@ struct CodexInstancesView: View {
                                     session: session,
                                     onFocus: { focusSession(session) },
                                     onChat: { openChat(session) },
+                                    onRename: { renameSession(session) },
                                     onArchive: { archiveSession(session) },
                                     onApprove: { approveSession(session) },
                                     onReject: { rejectSession(session) }
@@ -191,6 +192,10 @@ struct CodexInstancesView: View {
     private func archiveSession(_ session: SessionState) {
         guard !session.isTerminalSession else { return }
         sessionMonitor.archiveSession(sessionId: session.sessionId)
+    }
+
+    private func renameSession(_ session: SessionState) {
+        sessionMonitor.editSessionTitle(session)
     }
 }
 
@@ -373,6 +378,7 @@ struct InstanceRow: View {
     let session: SessionState
     let onFocus: () -> Void
     let onChat: () -> Void
+    let onRename: () -> Void
     let onArchive: () -> Void
     let onApprove: () -> Void
     let onReject: () -> Void
@@ -495,6 +501,10 @@ struct InstanceRow: View {
             // Action icons or approval buttons
             if isTerminalSession {
                 HStack(spacing: 8) {
+                    IconButton(icon: "pencil") {
+                        onRename()
+                    }
+
                     IconButton(icon: "eye") {
                         onFocus()
                     }
@@ -505,6 +515,10 @@ struct InstanceRow: View {
                 HStack(spacing: 8) {
                     IconButton(icon: "bubble.left") {
                         onChat()
+                    }
+
+                    IconButton(icon: "pencil") {
+                        onRename()
                     }
 
                     // Go to Terminal button (only if yabai available)
@@ -528,6 +542,10 @@ struct InstanceRow: View {
                     // Chat icon - always show
                     IconButton(icon: "bubble.left") {
                         onChat()
+                    }
+
+                    IconButton(icon: "pencil") {
+                        onRename()
                     }
 
                     // Focus icon (only for tmux instances with yabai)

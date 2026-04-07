@@ -111,6 +111,9 @@ actor SessionStore {
         case .agentFileUpdated:
             // No longer used - subagent tools are populated from JSONL completion
             break
+
+        case .sessionTitleUpdated(let sessionId, let provider, let title):
+            processSessionTitleUpdated(sessionId: sessionId, provider: provider, title: title)
         }
 
         publishState()
@@ -895,6 +898,17 @@ actor SessionStore {
         sessions[sessionId] = session
 
         Self.logger.info("/clear processed for session \(sessionId.prefix(8), privacy: .public) - marked for reconciliation")
+    }
+
+    private func processSessionTitleUpdated(sessionId: String, provider: SessionProvider, title: String?) {
+        SessionTitleStore.setTitle(title, for: provider, sessionId: sessionId)
+
+        guard var session = sessions[sessionId] else {
+            return
+        }
+
+        session.customTitle = SessionTitleStore.title(for: provider, sessionId: sessionId)
+        sessions[sessionId] = session
     }
 
     // MARK: - Session End Processing

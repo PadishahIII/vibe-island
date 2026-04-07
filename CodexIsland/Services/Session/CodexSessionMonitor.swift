@@ -150,6 +150,31 @@ class CodexSessionMonitor: ObservableObject {
         TerminalSessionMonitor.shared.activate(sessionId: sessionId)
     }
 
+    func editSessionTitle(_ session: SessionState) {
+        guard let action = SessionTitlePrompt.present(for: session) else {
+            return
+        }
+
+        switch action {
+        case .save(let title):
+            Task {
+                await SessionStore.shared.process(
+                    .sessionTitleUpdated(
+                        sessionId: session.sessionId,
+                        provider: session.provider,
+                        title: title
+                    )
+                )
+
+                if session.isTerminalSession {
+                    await MainActor.run {
+                        TerminalSessionMonitor.shared.refreshTitleOverrides()
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - State Update
 
     private func updateVisibleInstances() {

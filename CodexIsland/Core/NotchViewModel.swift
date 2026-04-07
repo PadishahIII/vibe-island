@@ -381,7 +381,9 @@ class NotchViewModel: ObservableObject {
     func notchClose() {
         // Save chat session before closing if in chat mode
         if case .chat(let session) = contentType {
-            currentChatSession = session
+            if currentChatSession?.sessionId != session.sessionId {
+                currentChatSession = session
+            }
         }
         status = .closed
         contentType = .instances
@@ -406,6 +408,7 @@ class NotchViewModel: ObservableObject {
         if case .chat(let current) = contentType, current.sessionId == session.sessionId {
             return
         }
+        currentChatSession = session
         contentType = .chat(session)
     }
 
@@ -421,6 +424,12 @@ class NotchViewModel: ObservableObject {
     func exitChat() {
         currentChatSession = nil
         contentType = .instances
+    }
+
+    func syncChatSession(_ session: SessionState) {
+        if let current = currentChatSession, current.sessionId == session.sessionId {
+            currentChatSession = session
+        }
     }
 
     /// Perform boot animation: expand briefly then collapse

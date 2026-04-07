@@ -18,6 +18,7 @@ struct SessionState: Equatable, Identifiable, Sendable {
     let cwd: String
     let projectName: String
     var transcriptPath: String?
+    var customTitle: String?
 
     // MARK: - Instance Metadata
 
@@ -74,6 +75,7 @@ struct SessionState: Equatable, Identifiable, Sendable {
         cwd: String,
         projectName: String? = nil,
         transcriptPath: String? = nil,
+        customTitle: String? = nil,
         pid: Int? = nil,
         tty: String? = nil,
         terminalName: String? = nil,
@@ -96,6 +98,8 @@ struct SessionState: Equatable, Identifiable, Sendable {
         self.cwd = cwd
         self.projectName = projectName ?? URL(fileURLWithPath: cwd).lastPathComponent
         self.transcriptPath = transcriptPath
+        self.customTitle = SessionTitleStore.normalizedTitle(customTitle)
+            ?? SessionTitleStore.title(for: provider, sessionId: sessionId)
         self.pid = pid
         self.tty = tty
         self.terminalName = terminalName
@@ -136,14 +140,27 @@ struct SessionState: Equatable, Identifiable, Sendable {
         return sessionId
     }
 
-    /// Display title: summary > first user message > project name
-    var displayTitle: String {
+    /// Default display title: summary > first user message > project name
+    var defaultDisplayTitle: String {
         conversationInfo.summary ?? conversationInfo.firstUserMessage ?? projectName
+    }
+
+    var hasCustomTitle: Bool {
+        normalizedCustomTitle != nil
+    }
+
+    /// Display title shown in the app
+    var displayTitle: String {
+        normalizedCustomTitle ?? defaultDisplayTitle
     }
 
     /// Best hint for matching window title
     var windowHint: String {
         conversationInfo.summary ?? projectName
+    }
+
+    private var normalizedCustomTitle: String? {
+        SessionTitleStore.normalizedTitle(customTitle)
     }
 
     /// Pending tool name if waiting for approval

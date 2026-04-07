@@ -63,6 +63,9 @@ enum SessionEvent: Sendable {
     /// Agent file was updated with new subagent tools (from AgentFileWatcher)
     case agentFileUpdated(sessionId: String, taskToolId: String, tools: [SubagentToolInfo])
 
+    /// User updated the display title shown only inside the app
+    case sessionTitleUpdated(sessionId: String, provider: SessionProvider, title: String?)
+
     // MARK: - Clear Events (from JSONL detection)
 
     /// User issued /clear command - reset UI state while keeping session alive
@@ -215,6 +218,8 @@ extension SessionEvent: CustomStringConvertible {
             return "interruptDetected(session: \(sessionId.prefix(8)))"
         case .clearDetected(let sessionId):
             return "clearDetected(session: \(sessionId.prefix(8)))"
+        case .sessionTitleUpdated(let sessionId, _, _):
+            return "sessionTitleUpdated(session: \(sessionId.prefix(8)))"
         case .sessionEnded(let sessionId):
             return "sessionEnded(session: \(sessionId.prefix(8)))"
         case .loadHistory(let sessionId, _):
