@@ -118,12 +118,12 @@ struct SessionState: Equatable, Identifiable, Sendable {
     // MARK: - Derived Properties
 
     /// Whether this session needs user attention
-    var needsAttention: Bool {
+    nonisolated var needsAttention: Bool {
         phase.needsAttention
     }
 
     /// The active permission context, if any
-    var activePermission: PermissionContext? {
+    nonisolated var activePermission: PermissionContext? {
         if case .waitingForApproval(let ctx) = phase {
             return ctx
         }
@@ -133,7 +133,7 @@ struct SessionState: Equatable, Identifiable, Sendable {
     // MARK: - UI Convenience Properties
 
     /// Stable identity for SwiftUI (combines PID and sessionId for animation stability)
-    var stableId: String {
+    nonisolated var stableId: String {
         if let pid = pid {
             return "\(pid)-\(sessionId)"
         }
@@ -141,87 +141,87 @@ struct SessionState: Equatable, Identifiable, Sendable {
     }
 
     /// Default display title: summary > first user message > project name
-    var defaultDisplayTitle: String {
+    nonisolated var defaultDisplayTitle: String {
         conversationInfo.summary ?? conversationInfo.firstUserMessage ?? projectName
     }
 
-    var hasCustomTitle: Bool {
+    nonisolated var hasCustomTitle: Bool {
         normalizedCustomTitle != nil
     }
 
     /// Display title shown in the app
-    var displayTitle: String {
+    nonisolated var displayTitle: String {
         normalizedCustomTitle ?? defaultDisplayTitle
     }
 
     /// Best hint for matching window title
-    var windowHint: String {
+    nonisolated var windowHint: String {
         conversationInfo.summary ?? projectName
     }
 
-    private var normalizedCustomTitle: String? {
+    private nonisolated var normalizedCustomTitle: String? {
         SessionTitleStore.normalizedTitle(customTitle)
     }
 
     /// Pending tool name if waiting for approval
-    var pendingToolName: String? {
+    nonisolated var pendingToolName: String? {
         activePermission?.toolName
     }
 
     /// Pending tool use ID
-    var pendingToolId: String? {
+    nonisolated var pendingToolId: String? {
         activePermission?.toolUseId
     }
 
     /// Formatted pending tool input for display
-    var pendingToolInput: String? {
+    nonisolated var pendingToolInput: String? {
         activePermission?.formattedInput
     }
 
     /// Last message content
-    var lastMessage: String? {
+    nonisolated var lastMessage: String? {
         conversationInfo.lastMessage
     }
 
     /// Last message role
-    var lastMessageRole: String? {
+    nonisolated var lastMessageRole: String? {
         conversationInfo.lastMessageRole
     }
 
     /// Last tool name
-    var lastToolName: String? {
+    nonisolated var lastToolName: String? {
         conversationInfo.lastToolName
     }
 
     /// Summary
-    var summary: String? {
+    nonisolated var summary: String? {
         conversationInfo.summary
     }
 
     /// First user message
-    var firstUserMessage: String? {
+    nonisolated var firstUserMessage: String? {
         conversationInfo.firstUserMessage
     }
 
     /// Last user message date
-    var lastUserMessageDate: Date? {
+    nonisolated var lastUserMessageDate: Date? {
         conversationInfo.lastUserMessageDate
     }
 
     /// Whether the session can be interacted with
-    var canInteract: Bool {
+    nonisolated var canInteract: Bool {
         phase.needsAttention
     }
 
-    var isTerminalSession: Bool {
+    nonisolated var isTerminalSession: Bool {
         provider.isTerminalProvider
     }
 
-    var supportsChat: Bool {
+    nonisolated var supportsChat: Bool {
         provider.supportsChat
     }
 
-    var canSendMessages: Bool {
+    nonisolated var canSendMessages: Bool {
         !isTerminalSession && tty != nil
     }
 }

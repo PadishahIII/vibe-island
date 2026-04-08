@@ -51,10 +51,7 @@ actor KittyHybridBackend: TerminalBackend {
                 return try await remoteSnapshot()
             } catch {
                 let fallbackBackend = await fallbackBackendInstance()
-                if await fallbackBackend.availability() == .ready {
-                    return try await fallbackBackend.currentSnapshot()
-                }
-                throw error
+                return try await fallbackBackend.currentSnapshot()
             }
         }
 

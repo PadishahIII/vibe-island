@@ -14,14 +14,7 @@ actor ItermAppleScriptBackend: TerminalBackend {
     nonisolated let displayName = "iTerm2"
 
     private let bundleIdentifier = "com.googlecode.iterm2"
-    private let fallbackBackend = ProcessTreeTerminalFallbackBackend(
-        key: "iterm2-tty",
-        provider: .iterm2,
-        displayName: "iTerm2",
-        bundleIdentifiers: ["com.googlecode.iterm2"],
-        commandMatchers: ["iterm.app/contents/macos/iterm2", "itermserver", "/iterm2"],
-        noticeMessage: "Showing iTerm2 sessions via TTY fallback."
-    )
+    private var fallbackBackend: ProcessTreeTerminalFallbackBackend?
     private var displayIndexMapping: [String: Int] = [:]
     private var nextDisplayIndex = 1
 
@@ -38,7 +31,7 @@ actor ItermAppleScriptBackend: TerminalBackend {
             _ = try await AppleScriptRunner.execute(source: ItermScriptTemplates.availabilityCheck)
             return .ready
         } catch let error as TerminalBackendError {
-            let fallbackAvailability = await fallbackBackend.availability()
+            let fallbackAvailability = await fallbackBackendInstance().availability()
             if fallbackAvailability.isReady {
                 return .ready
             }
@@ -69,7 +62,7 @@ actor ItermAppleScriptBackend: TerminalBackend {
             let output = try await AppleScriptRunner.execute(source: ItermScriptTemplates.enumerateSessions)
             let records = try ItermSnapshotParser.parse(output)
             if records.isEmpty {
-                return try await fallbackBackend.currentSnapshot()
+                return try await fallbackBackendInstance().currentSnapshot()
             }
 
             let generatedAt = Date()
@@ -105,13 +98,13 @@ actor ItermAppleScriptBackend: TerminalBackend {
                 noticeMessage: nil
             )
         } catch {
-            return try await fallbackBackend.currentSnapshot()
+            return try await fallbackBackendInstance().currentSnapshot()
         }
     }
 
     func activateSession(id: String) async throws {
         if id.hasPrefix("tty:") {
-            try await fallbackBackend.activateSession(id: id)
+            try await fallbackBackendInstance().activateSession(id: id)
             return
         }
 
@@ -129,6 +122,25 @@ actor ItermAppleScriptBackend: TerminalBackend {
         guard result == "ok" else {
             throw TerminalBackendError.sessionNotFound
         }
+    }
+
+    private func fallbackBackendInstance() async -> ProcessTreeTerminalFallbackBackend {
+        if let fallbackBackend {
+            return fallbackBackend
+        }
+
+        let backend = await MainActor.run {
+            ProcessTreeTerminalFallbackBackend(
+                key: "iterm2-tty",
+                provider: .iterm2,
+                displayName: "iTerm2",
+                bundleIdentifiers: ["com.googlecode.iterm2"],
+                commandMatchers: ["iterm.app/contents/macos/iterm2", "itermserver", "/iterm2"],
+                noticeMessage: "Showing iTerm2 sessions via TTY fallback."
+            )
+        }
+        fallbackBackend = backend
+        return backend
     }
 
     private func isInstalled() -> Bool {

@@ -200,14 +200,21 @@ struct NotchView: View {
         .preferredColorScheme(.dark)
         .onAppear {
             sessionMonitor.startMonitoring()
+            SessionRefreshCoordinator.shared.updatePresentation(status: viewModel.status)
             viewModel.updateClosedBarInteractionWidth(collapsedBarHitWidth)
             // On non-notched devices, keep visible so users have a target to interact with
             if !viewModel.hasPhysicalNotch {
                 isVisible = true
             }
         }
+        .onDisappear {
+            sessionMonitor.stopMonitoring()
+            SessionRefreshCoordinator.shared.updatePresentation(status: .closed)
+            viewModel.stopEventMonitoring()
+        }
         .onChange(of: viewModel.status) { oldStatus, newStatus in
             handleStatusChange(from: oldStatus, to: newStatus)
+            SessionRefreshCoordinator.shared.updatePresentation(status: newStatus)
         }
         .onChange(of: sessionMonitor.pendingInstances) { _, sessions in
             handlePendingSessionsChange(sessions)
@@ -503,7 +510,7 @@ struct NotchView: View {
                 Task {
                     let shouldPlaySound = await shouldPlayNotificationSound(for: newlyWaitingSessions)
                     if shouldPlaySound {
-                        await MainActor.run {
+                        _ = await MainActor.run {
                             NSSound(named: soundName)?.play()
                         }
                     }

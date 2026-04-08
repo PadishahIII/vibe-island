@@ -121,8 +121,14 @@ class NotchViewModel: ObservableObject {
         )
         self.hasPhysicalNotch = hasPhysicalNotch
         self.closedBarInteractionWidth = max(deviceNotchRect.width + 44, 180)
+        events.start()
         setupEventHandlers()
         observeSelectors()
+    }
+
+    func stopEventMonitoring() {
+        events.stopMouseDraggedMonitoring()
+        events.stop()
     }
 
     private func observeSelectors() {
@@ -248,8 +254,10 @@ class NotchViewModel: ObservableObject {
 
         if draggableBarContains(location) {
             AppDelegate.shared?.beginWindowDrag(at: location)
+            events.startMouseDraggedMonitoring()
         } else {
             AppDelegate.shared?.cancelWindowDrag()
+            events.stopMouseDraggedMonitoring()
         }
 
         switch status {
@@ -294,6 +302,7 @@ class NotchViewModel: ObservableObject {
     }
 
     private func handleMouseUp() {
+        events.stopMouseDraggedMonitoring()
         let didDragWindow = AppDelegate.shared?.endWindowDrag() ?? false
         let pendingAction = pendingBarAction
         pendingBarAction = nil

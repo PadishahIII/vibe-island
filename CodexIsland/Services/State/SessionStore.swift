@@ -30,6 +30,9 @@ actor SessionStore {
     /// Sync debounce interval (100ms)
     private let syncDebounceNs: UInt64 = 100_000_000
 
+    /// Last state delivered to the UI, used to suppress no-op publishes.
+    private var lastPublishedSessions: [SessionState] = []
+
     // MARK: - Published State (for UI)
 
     /// Publisher for session state changes (nonisolated for Combine subscription from any context)
@@ -108,10 +111,6 @@ actor SessionStore {
         case .subagentStopped(let sessionId, let taskToolId):
             processSubagentStopped(sessionId: sessionId, taskToolId: taskToolId)
 
-        case .agentFileUpdated:
-            // No longer used - subagent tools are populated from JSONL completion
-            break
-
         case .sessionTitleUpdated(let sessionId, let provider, let title):
             processSessionTitleUpdated(sessionId: sessionId, provider: provider, title: title)
         }
@@ -170,7 +169,6 @@ actor SessionStore {
         }
 
         sessions[sessionId] = session
-        publishState()
 
         if event.shouldSyncFile {
             scheduleFileSync(sessionId: sessionId)
@@ -1030,6 +1028,11 @@ actor SessionStore {
 
     private func publishState() {
         let sortedSessions = Array(sessions.values).sorted { $0.projectName < $1.projectName }
+        guard sortedSessions != lastPublishedSessions else {
+            return
+        }
+
+        lastPublishedSessions = sortedSessions
         sessionsSubject.send(sortedSessions)
     }
 

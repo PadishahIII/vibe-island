@@ -19,6 +19,7 @@ class CodexSessionMonitor: ObservableObject {
     private let visibilitySelector = SessionVisibilitySelector.shared
     private var agentSessions: [SessionState] = []
     private var terminalSessions: [SessionState] = []
+    private var isMonitoring = false
 
     init() {
         SessionStore.shared.sessionsPublisher
@@ -50,9 +51,13 @@ class CodexSessionMonitor: ObservableObject {
     // MARK: - Monitoring Lifecycle
 
     func startMonitoring() {
+        guard !isMonitoring else { return }
+        isMonitoring = true
+
         TerminalSessionMonitor.shared.start()
         CodexSessionScanner.shared.start()
         OpencodeSessionScanner.shared.start()
+        SessionRefreshCoordinator.shared.start()
 
         HookSocketServer.shared.start(
             onEvent: { event in
@@ -94,6 +99,10 @@ class CodexSessionMonitor: ObservableObject {
     }
 
     func stopMonitoring() {
+        guard isMonitoring else { return }
+        isMonitoring = false
+
+        SessionRefreshCoordinator.shared.stop()
         TerminalSessionMonitor.shared.stop()
         CodexSessionScanner.shared.stop()
         OpencodeSessionScanner.shared.stop()
@@ -177,6 +186,10 @@ class CodexSessionMonitor: ObservableObject {
 
         instances = combined
         pendingInstances = combined.filter { $0.needsAttention }
+        SessionRefreshCoordinator.shared.updateSessionSummary(
+            hasUrgentSessions: combined.contains { $0.phase.isActive || $0.phase.needsAttention },
+            hasTrackedSessions: !combined.isEmpty
+        )
     }
 
     // MARK: - History Loading (for UI)

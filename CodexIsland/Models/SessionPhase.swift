@@ -16,7 +16,7 @@ struct PermissionContext: Sendable {
     let receivedAt: Date
 
     /// Format tool input for display
-    var formattedInput: String? {
+    nonisolated var formattedInput: String? {
         guard let input = toolInput else { return nil }
         var parts: [String] = []
         for (key, value) in input {
@@ -137,7 +137,7 @@ enum SessionPhase: Sendable {
     }
 
     /// Whether this phase indicates the session needs user attention
-    var needsAttention: Bool {
+    nonisolated var needsAttention: Bool {
         switch self {
         case .waitingForApproval, .waitingForInput:
             return true
@@ -147,7 +147,7 @@ enum SessionPhase: Sendable {
     }
 
     /// Whether this phase indicates active processing
-    var isActive: Bool {
+    nonisolated var isActive: Bool {
         switch self {
         case .processing, .compacting:
             return true
@@ -157,7 +157,7 @@ enum SessionPhase: Sendable {
     }
 
     /// Whether this is a waitingForApproval phase
-    var isWaitingForApproval: Bool {
+    nonisolated var isWaitingForApproval: Bool {
         if case .waitingForApproval = self {
             return true
         }
@@ -165,7 +165,7 @@ enum SessionPhase: Sendable {
     }
 
     /// Extract tool name if waiting for approval
-    var approvalToolName: String? {
+    nonisolated var approvalToolName: String? {
         if case .waitingForApproval(let ctx) = self {
             return ctx.toolName
         }

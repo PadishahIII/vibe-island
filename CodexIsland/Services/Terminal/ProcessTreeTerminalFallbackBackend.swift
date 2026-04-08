@@ -128,6 +128,7 @@ actor ProcessTreeTerminalFallbackBackend: TerminalBackend {
 
     private func currentSessions() -> [FallbackSession] {
         let tree = ProcessTreeBuilder.shared.buildTree()
+        let context = ProcessScanContext(tree: tree)
         let grouped = Dictionary(grouping: tree.values.compactMap { candidate(for: $0, tree: tree) }) {
             "\($0.appPid)::\($0.tty)"
         }
@@ -137,14 +138,14 @@ actor ProcessTreeTerminalFallbackBackend: TerminalBackend {
                 return nil
             }
 
-            let title = sessionTitle(for: primary)
+            let title = sessionTitle(for: primary, context: context)
             return FallbackSession(
                 id: "tty:\(provider.rawValue):\(primary.appPid):\(primary.tty)",
                 title: title,
                 subtitle: "\(displayName) · \(primary.tty)",
                 tty: primary.tty,
                 appPid: primary.appPid,
-                workingDirectory: ProcessTreeBuilder.shared.getWorkingDirectory(forPid: primary.pid)
+                workingDirectory: context.workingDirectory(for: primary.pid)
             )
         }
         .sorted { lhs, rhs in
@@ -229,9 +230,9 @@ actor ProcessTreeTerminalFallbackBackend: TerminalBackend {
         return 3
     }
 
-    private func sessionTitle(for candidate: Candidate) -> String {
+    private func sessionTitle(for candidate: Candidate, context: ProcessScanContext) -> String {
         let commandName = normalizedCommandName(candidate.command)
-        let cwdLabel = workingDirectoryLabel(for: candidate.pid)
+        let cwdLabel = workingDirectoryLabel(for: candidate.pid, context: context)
 
         if isShellLike(commandName) || commandName == "login" || isCodingAgent(commandName) {
             if let cwdLabel {
@@ -250,8 +251,8 @@ actor ProcessTreeTerminalFallbackBackend: TerminalBackend {
         return "\(displayName) \(candidate.tty)"
     }
 
-    private func workingDirectoryLabel(for pid: Int) -> String? {
-        guard let cwd = ProcessTreeBuilder.shared.getWorkingDirectory(forPid: pid),
+    private func workingDirectoryLabel(for pid: Int, context: ProcessScanContext) -> String? {
+        guard let cwd = context.workingDirectory(for: pid),
               !cwd.isEmpty,
               cwd != "/" else {
             return nil

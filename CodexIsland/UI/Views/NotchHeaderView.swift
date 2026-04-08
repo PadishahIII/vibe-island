@@ -5,7 +5,6 @@
 //  Header bar for the dynamic island
 //
 
-import Combine
 import SwiftUI
 
 struct CodexCrabIcon: View {
@@ -13,10 +12,7 @@ struct CodexCrabIcon: View {
     let color: Color
     var animateLegs: Bool = false
 
-    @State private var legPhase: Int = 0
-
-    // Timer for leg animation
-    private let legTimer = Timer.publish(every: 0.15, on: .main, in: .common).autoconnect()
+    @ObservedObject private var animationTicker = AnimationTicker.shared
 
     init(size: CGFloat = 16, color: Color = TerminalColors.prompt, animateLegs: Bool = false) {
         self.size = size
@@ -54,7 +50,10 @@ struct CodexCrabIcon: View {
                 [0, 0, 0, 0],     // Phase 3: neutral
             ]
 
-            let currentHeightOffsets = animateLegs ? legHeightOffsets[legPhase % 4] : [CGFloat](repeating: 0, count: 4)
+            let currentHeightOffsets =
+                animateLegs
+                ? legHeightOffsets[animationTicker.tick % 4]
+                : [CGFloat](repeating: 0, count: 4)
 
             for (index, xPos) in baseLegPositions.enumerated() {
                 let heightOffset = currentHeightOffsets[index]
@@ -84,11 +83,6 @@ struct CodexCrabIcon: View {
             context.fill(rightEye, with: .color(.black))
         }
         .frame(width: size * (66.0 / 52.0), height: size)
-        .onReceive(legTimer) { _ in
-            if animateLegs {
-                legPhase = (legPhase + 1) % 4
-            }
-        }
     }
 }
 

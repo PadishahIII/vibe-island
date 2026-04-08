@@ -15,7 +15,7 @@ enum SessionProvider: String, Codable, Equatable, Sendable {
     case kitty
     case alacritty
 
-    var displayName: String {
+    nonisolated var displayName: String {
         switch self {
         case .claude:
             return "Claude Code"
@@ -32,7 +32,7 @@ enum SessionProvider: String, Codable, Equatable, Sendable {
         }
     }
 
-    var badgeLabel: String {
+    nonisolated var badgeLabel: String {
         switch self {
         case .claude:
             return "claudecode"
@@ -49,7 +49,7 @@ enum SessionProvider: String, Codable, Equatable, Sendable {
         }
     }
 
-    var commandName: String {
+    nonisolated var commandName: String {
         switch self {
         case .claude:
             return "claude"
@@ -66,7 +66,7 @@ enum SessionProvider: String, Codable, Equatable, Sendable {
         }
     }
 
-    var isTerminalProvider: Bool {
+    nonisolated var isTerminalProvider: Bool {
         switch self {
         case .iterm2, .kitty, .alacritty:
             return true
@@ -75,11 +75,11 @@ enum SessionProvider: String, Codable, Equatable, Sendable {
         }
     }
 
-    var supportsChat: Bool {
+    nonisolated var supportsChat: Bool {
         !isTerminalProvider
     }
 
-    static var visibilityOptions: [SessionProvider] {
+    nonisolated static var visibilityOptions: [SessionProvider] {
         [.claude, .codex, .opencode, .iterm2, .kitty, .alacritty]
     }
 }

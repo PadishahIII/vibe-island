@@ -15,14 +15,18 @@ actor CompositeTerminalBackend {
         let backend: any TerminalBackend
     }
 
-    private enum SnapshotResult {
-        case success(Entry, TerminalSnapshot)
-        case failure(Error)
+    private struct BackendRefreshResult {
+        let availability: TerminalBackendAvailability
+        let snapshot: TerminalSnapshot?
+        let backendError: TerminalBackendError?
+        let refreshedAt: Date
     }
 
     private let entries: [Entry]
     private var displayIndexMapping: [String: Int] = [:]
     private var nextDisplayIndex = 1
+    private let refreshCacheTTL: TimeInterval = 1.0
+    private var refreshCache: [String: BackendRefreshResult] = [:]
 
     init(entries: [Entry]) {
         self.entries = entries
@@ -62,51 +66,27 @@ actor CompositeTerminalBackend {
             return TerminalSnapshot(sessions: [], generatedAt: Date(), noticeMessage: nil)
         }
 
-        let statuses = await refreshStatuses(enabledProviders: enabledProviders)
+        let refreshResults = await refreshResults(enabledProviders: enabledProviders)
         var snapshots: [(Entry, TerminalSnapshot)] = []
         var notices: [String] = []
-        var errors: [Error] = []
+        let errors = refreshResults.compactMap(\.1.backendError)
 
-        await withTaskGroup(of: SnapshotResult.self) { group in
-            for entry in entries where enabledProviders.contains(entry.provider) {
-                guard statuses[entry.key] == .ready else {
-                    continue
-                }
-
-                group.addTask {
-                    do {
-                        let snapshot = try await entry.backend.currentSnapshot()
-                        return .success(entry, snapshot)
-                    } catch {
-                        return .failure(error)
-                    }
-                }
-            }
-
-            for await result in group {
-                switch result {
-                case .success(let entry, let snapshot):
-                    snapshots.append((entry, snapshot))
-                case .failure(let error):
-                    errors.append(error)
-                }
+        for (entry, result) in refreshResults where result.availability == .ready {
+            if let snapshot = result.snapshot {
+                snapshots.append((entry, snapshot))
             }
         }
 
         if snapshots.isEmpty {
             if let firstError = errors.first {
-                if let backendError = firstError as? TerminalBackendError {
-                    throw backendError
-                }
-
-                throw TerminalBackendError.unavailable(firstError.localizedDescription)
+                throw firstError
             }
 
-            if statuses.values.contains(.permissionRequired) {
+            if refreshResults.contains(where: { $0.1.availability == .permissionRequired }) {
                 throw TerminalBackendError.permissionRequired
             }
 
-            if statuses.values.contains(.installedNotRunning) {
+            if refreshResults.contains(where: { $0.1.availability == .installedNotRunning }) {
                 throw TerminalBackendError.notRunning
             }
 
@@ -147,7 +127,7 @@ actor CompositeTerminalBackend {
                 return nil
             }
 
-            if statuses[entry.key] == .permissionRequired {
+            if refreshResults.first(where: { $0.0.key == entry.key })?.1.availability == .permissionRequired {
                 return entry.displayName
             }
 
@@ -189,23 +169,63 @@ actor CompositeTerminalBackend {
         try await entry.backend.activateSession(id: rawID)
     }
 
-    private func refreshStatuses(enabledProviders: Set<SessionProvider>) async -> [String: TerminalBackendAvailability] {
-        var statuses: [String: TerminalBackendAvailability] = [:]
+    func invalidateCache() {
+        refreshCache.removeAll()
+    }
 
-        await withTaskGroup(of: (String, TerminalBackendAvailability).self) { group in
+    private func refreshResults(
+        enabledProviders: Set<SessionProvider>
+    ) async -> [(Entry, BackendRefreshResult)] {
+        await withTaskGroup(of: (Entry, BackendRefreshResult).self, returning: [(Entry, BackendRefreshResult)].self) { group in
             for entry in entries where enabledProviders.contains(entry.provider) {
-                group.addTask {
-                    let availability = await entry.backend.availability()
-                    return (entry.key, availability)
+                group.addTask { [refreshCacheTTL] in
+                    let result = await self.refreshResult(for: entry, ttl: refreshCacheTTL)
+                    return (entry, result)
                 }
             }
 
+            var results: [(Entry, BackendRefreshResult)] = []
             for await result in group {
-                statuses[result.0] = result.1
+                results.append(result)
             }
+            return results
+        }
+    }
+
+    private func refreshResult(for entry: Entry, ttl: TimeInterval) async -> BackendRefreshResult {
+        let now = Date()
+        if let cached = refreshCache[entry.key],
+           now.timeIntervalSince(cached.refreshedAt) < ttl {
+            return cached
         }
 
-        return statuses
+        let result: BackendRefreshResult
+        do {
+            let snapshot = try await entry.backend.currentSnapshot()
+            result = BackendRefreshResult(
+                availability: .ready,
+                snapshot: snapshot,
+                backendError: nil,
+                refreshedAt: now
+            )
+        } catch let backendError as TerminalBackendError {
+            result = BackendRefreshResult(
+                availability: availability(for: backendError),
+                snapshot: nil,
+                backendError: backendError,
+                refreshedAt: now
+            )
+        } catch {
+            result = BackendRefreshResult(
+                availability: .error(error.localizedDescription),
+                snapshot: nil,
+                backendError: .unavailable(error.localizedDescription),
+                refreshedAt: now
+            )
+        }
+
+        refreshCache[entry.key] = result
+        return result
     }
 
     private func displayIndex(for sessionID: String) -> Int {
@@ -217,6 +237,19 @@ actor CompositeTerminalBackend {
         displayIndexMapping[sessionID] = allocated
         nextDisplayIndex += 1
         return allocated
+    }
+
+    private func availability(for error: TerminalBackendError) -> TerminalBackendAvailability {
+        switch error {
+        case .notInstalled:
+            return .notInstalled
+        case .notRunning:
+            return .installedNotRunning
+        case .permissionRequired:
+            return .permissionRequired
+        case .sessionNotFound, .parseFailed, .scriptFailed, .unavailable:
+            return .error(error.localizedDescription)
+        }
     }
 }
 

@@ -18,42 +18,26 @@ final class TerminalSessionMonitor: ObservableObject {
     private let backend = CompositeTerminalBackend.defaultBackends()
     private let visibilitySelector = SessionVisibilitySelector.shared
 
-    private var timer: Timer?
-    private var cancellables = Set<AnyCancellable>()
+    private var isStarted = false
 
-    private init() {
-        visibilitySelector.$visibleProviders
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                Task { @MainActor in
-                    self?.refresh()
-                }
-            }
-            .store(in: &cancellables)
-    }
+    private init() {}
 
     func start() {
-        guard timer == nil else { return }
-
-        refresh()
-        timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            Task { @MainActor [self] in
-                self.refresh()
-            }
-        }
+        isStarted = true
     }
 
     func stop() {
-        timer?.invalidate()
-        timer = nil
+        isStarted = false
+        sessions = []
+        noticeMessage = nil
     }
 
     func activate(sessionId: String) {
         Task { @MainActor in
             do {
                 try await backend.activateSession(id: sessionId)
-                refresh()
+                await backend.invalidateCache()
+                SessionRefreshCoordinator.shared.requestRefresh()
             } catch {
                 noticeMessage = error.localizedDescription
             }
@@ -68,10 +52,9 @@ final class TerminalSessionMonitor: ObservableObject {
         }
     }
 
-    private func refresh() {
-        Task { @MainActor in
-            await refreshSessions()
-        }
+    func refreshFromCoordinator() async {
+        guard isStarted else { return }
+        await refreshSessions()
     }
 
     private func refreshSessions() async {
@@ -87,7 +70,14 @@ final class TerminalSessionMonitor: ObservableObject {
 
         do {
             let snapshot = try await backend.currentSnapshot(enabledProviders: enabledProviders)
-            sessions = snapshot.sessions.map(makeSessionState(from:))
+            let existingStates = Dictionary(uniqueKeysWithValues: sessions.map { ($0.sessionId, $0) })
+            sessions = snapshot.sessions.map {
+                makeSessionState(
+                    from: $0,
+                    existingState: existingStates[$0.id],
+                    generatedAt: snapshot.generatedAt
+                )
+            }
             noticeMessage = snapshot.noticeMessage
         } catch {
             sessions = []
@@ -95,9 +85,18 @@ final class TerminalSessionMonitor: ObservableObject {
         }
     }
 
-    private func makeSessionState(from session: TerminalSession) -> SessionState {
+    private func makeSessionState(
+        from session: TerminalSession,
+        existingState: SessionState?,
+        generatedAt: Date
+    ) -> SessionState {
         let title = session.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let displayTitle = title.isEmpty ? "\(session.provider.displayName) Session \(session.displayIndex)" : title
+        let createdAt = existingState?.createdAt ?? generatedAt
+        let lastActivity =
+            hasMeaningfulChange(in: session, defaultDisplayTitle: displayTitle, existingState: existingState)
+            ? generatedAt
+            : (existingState?.lastActivity ?? generatedAt)
 
         return SessionState(
             sessionId: session.id,
@@ -123,8 +122,25 @@ final class TerminalSessionMonitor: ObservableObject {
                 lastUserMessageDate: nil
             ),
             needsClearReconciliation: false,
-            lastActivity: session.lastSeenAt,
-            createdAt: session.lastSeenAt
+            lastActivity: lastActivity,
+            createdAt: createdAt
         )
+    }
+
+    private func hasMeaningfulChange(
+        in session: TerminalSession,
+        defaultDisplayTitle: String,
+        existingState: SessionState?
+    ) -> Bool {
+        guard let existingState else {
+            return true
+        }
+
+        return existingState.projectName != defaultDisplayTitle
+            || existingState.cwd != (session.workingDirectory ?? "/")
+            || existingState.pid != session.focusPid
+            || existingState.tty != session.tty
+            || existingState.terminalName != session.subtitleLabel
+            || existingState.isFocusedTerminalSession != session.isFocused
     }
 }

@@ -13,6 +13,7 @@ struct CodexInstancesView: View {
     @ObservedObject var viewModel: NotchViewModel
     @ObservedObject private var visibilitySelector = SessionVisibilitySelector.shared
     @ObservedObject private var presentationController = SessionListPresentationController.shared
+    @State private var isYabaiAvailable = false
 
     var body: some View {
         VStack(spacing: 10) {
@@ -136,6 +137,7 @@ struct CodexInstancesView: View {
                             ForEach(section.sessions) { session in
                                 InstanceRow(
                                     session: session,
+                                    isYabaiAvailable: isYabaiAvailable,
                                     onFocus: { focusSession(session) },
                                     onChat: { openChat(session) },
                                     onRename: { title in renameSession(session, title: title) },
@@ -152,6 +154,9 @@ struct CodexInstancesView: View {
             .padding(.vertical, 4)
         }
         .scrollBounceBehavior(.basedOnSize)
+        .task {
+            isYabaiAvailable = await WindowFinder.shared.isYabaiAvailable()
+        }
     }
 
     // MARK: - Actions
@@ -376,6 +381,7 @@ private struct SessionListMenu<Content: View>: View {
 
 struct InstanceRow: View {
     let session: SessionState
+    let isYabaiAvailable: Bool
     let onFocus: () -> Void
     let onChat: () -> Void
     let onRename: (String?) -> Void
@@ -386,13 +392,9 @@ struct InstanceRow: View {
     @State private var isHovered = false
     @State private var isEditingTitle = false
     @State private var titleDraft = ""
-    @State private var spinnerPhase = 0
-    @State private var isYabaiAvailable = false
     @FocusState private var isTitleFieldFocused: Bool
 
     private let codexBlue = TerminalColors.prompt
-    private let spinnerSymbols = ["·", "✢", "✳", "∗", "✻", "✽"]
-    private let spinnerTimer = Timer.publish(every: 0.15, on: .main, in: .common).autoconnect()
 
     /// Whether we're showing the approval UI
     private var isWaitingForApproval: Bool {
@@ -640,9 +642,6 @@ struct InstanceRow: View {
                 isTitleFieldFocused = false
             }
         }
-        .task {
-            isYabaiAvailable = await WindowFinder.shared.isYabaiAvailable()
-        }
     }
 
     private func beginTitleEdit() {
@@ -671,32 +670,21 @@ struct InstanceRow: View {
                 .frame(width: 6, height: 6)
         } else {
             switch session.phase {
-        case .processing, .compacting:
-            Text(spinnerSymbols[spinnerPhase % spinnerSymbols.count])
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(codexBlue)
-                .onReceive(spinnerTimer) { _ in
-                    spinnerPhase = (spinnerPhase + 1) % spinnerSymbols.count
-                }
-        case .waitingForApproval:
-            Text(spinnerSymbols[spinnerPhase % spinnerSymbols.count])
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(TerminalColors.amber)
-                .onReceive(spinnerTimer) { _ in
-                    spinnerPhase = (spinnerPhase + 1) % spinnerSymbols.count
-                }
-        case .waitingForInput:
-            Circle()
-                .fill(TerminalColors.green)
-                .frame(width: 6, height: 6)
-        case .idle, .ended:
-            Circle()
-                .fill(Color.white.opacity(0.2))
-                .frame(width: 6, height: 6)
-        }
+            case .processing, .compacting:
+                ProcessingSpinner(color: codexBlue)
+            case .waitingForApproval:
+                ProcessingSpinner(color: TerminalColors.amber)
+            case .waitingForInput:
+                Circle()
+                    .fill(TerminalColors.green)
+                    .frame(width: 6, height: 6)
+            case .idle, .ended:
+                Circle()
+                    .fill(Color.white.opacity(0.2))
+                    .frame(width: 6, height: 6)
+            }
         }
     }
-
 }
 
 private struct SessionProviderBadge: View {

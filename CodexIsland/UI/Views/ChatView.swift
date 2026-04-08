@@ -5,7 +5,6 @@
 //  Redesigned chat interface with clean visual hierarchy
 //
 
-import Combine
 import SwiftUI
 
 struct ChatView: View {
@@ -571,9 +570,7 @@ struct ProcessingIndicatorView: View {
     private let baseTexts = ["Processing", "Working"]
     private let color = TerminalColors.prompt
     private let baseText: String
-
-    @State private var dotCount: Int = 1
-    private let timer = Timer.publish(every: 0.4, on: .main, in: .common).autoconnect()
+    @ObservedObject private var animationTicker = AnimationTicker.shared
 
     /// Use a turnId to select text consistently per user turn
     init(turnId: String = "") {
@@ -583,7 +580,8 @@ struct ProcessingIndicatorView: View {
     }
 
     private var dots: String {
-        String(repeating: ".", count: dotCount)
+        let dotCount = ((animationTicker.tick / 3) % 3) + 1
+        return String(repeating: ".", count: dotCount)
     }
 
     var body: some View {
@@ -596,9 +594,6 @@ struct ProcessingIndicatorView: View {
                 .foregroundColor(color)
 
             Spacer()
-        }
-        .onReceive(timer) { _ in
-            dotCount = (dotCount % 3) + 1
         }
     }
 }

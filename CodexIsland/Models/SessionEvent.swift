@@ -60,9 +60,6 @@ enum SessionEvent: Sendable {
     /// A Task (subagent) tool has stopped
     case subagentStopped(sessionId: String, taskToolId: String)
 
-    /// Agent file was updated with new subagent tools (from AgentFileWatcher)
-    case agentFileUpdated(sessionId: String, taskToolId: String, tools: [SubagentToolInfo])
-
     /// User updated the display title shown only inside the app
     case sessionTitleUpdated(sessionId: String, provider: SessionProvider, title: String?)
 
@@ -236,8 +233,6 @@ extension SessionEvent: CustomStringConvertible {
             return "subagentToolCompleted(session: \(sessionId.prefix(8)), tool: \(toolId.prefix(12)), status: \(status))"
         case .subagentStopped(let sessionId, let taskToolId):
             return "subagentStopped(session: \(sessionId.prefix(8)), task: \(taskToolId.prefix(12)))"
-        case .agentFileUpdated(let sessionId, let taskToolId, let tools):
-            return "agentFileUpdated(session: \(sessionId.prefix(8)), task: \(taskToolId.prefix(12)), tools: \(tools.count))"
         }
     }
 }

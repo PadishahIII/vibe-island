@@ -117,6 +117,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         Mixpanel.mainInstance().flush()
         updateCheckTimer?.invalidate()
+        SessionRefreshCoordinator.shared.stop()
         TerminalSessionMonitor.shared.stop()
         CodexSessionScanner.shared.stop()
         OpencodeSessionScanner.shared.stop()
@@ -129,6 +130,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         isQuitting = true
 
         updateCheckTimer?.invalidate()
+        SessionRefreshCoordinator.shared.stop()
         TerminalSessionMonitor.shared.stop()
         CodexSessionScanner.shared.stop()
         OpencodeSessionScanner.shared.stop()

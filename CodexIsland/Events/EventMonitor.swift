@@ -23,6 +23,10 @@ class EventMonitor {
     }
 
     func start() {
+        guard globalMonitor == nil, localMonitor == nil else {
+            return
+        }
+
         // Global monitor for events outside our app
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in
             self?.handler(event)

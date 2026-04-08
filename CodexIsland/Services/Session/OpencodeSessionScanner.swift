@@ -20,34 +20,27 @@ final class OpencodeSessionScanner {
     }
 
     private let database = OpencodeSessionDatabase.shared
-    private var timer: Timer?
+    private var isStarted = false
     private var trackedSessionIds: Set<String> = []
 
     private init() {}
 
     func start() {
-        guard timer == nil else { return }
-
-        performScan()
-        timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
-            self?.performScan()
-        }
+        isStarted = true
     }
 
     func stop() {
-        timer?.invalidate()
-        timer = nil
+        isStarted = false
+        trackedSessionIds.removeAll()
     }
 
-    private func performScan() {
-        Task {
-            await scan()
-        }
+    func refresh(using context: ProcessScanContext) async {
+        guard isStarted else { return }
+        await scan(using: context)
     }
 
-    private func scan() async {
-        let tree = ProcessTreeBuilder.shared.buildTree()
-        let runningProcesses = discoverRunningProcesses(tree: tree)
+    private func scan(using context: ProcessScanContext) async {
+        let runningProcesses = discoverRunningProcesses(context: context)
         let groupedByDirectory = Dictionary(grouping: runningProcesses, by: \.cwd)
 
         var discoveredSessionIds: Set<String> = []
@@ -87,11 +80,11 @@ final class OpencodeSessionScanner {
         }
     }
 
-    private func discoverRunningProcesses(tree: [Int: ProcessInfo]) -> [RunningProcess] {
-        tree.values.compactMap { info in
+    private func discoverRunningProcesses(context: ProcessScanContext) -> [RunningProcess] {
+        context.tree.values.compactMap { info in
             guard let tty = info.tty,
                   info.command.lowercased().contains("opencode"),
-                  let cwd = ProcessTreeBuilder.shared.getWorkingDirectory(forPid: info.pid) else {
+                  let cwd = context.workingDirectory(for: info.pid) else {
                 return nil
             }
 
@@ -99,7 +92,7 @@ final class OpencodeSessionScanner {
                 pid: info.pid,
                 tty: tty,
                 cwd: cwd,
-                isInTmux: ProcessTreeBuilder.shared.isInTmux(pid: info.pid, tree: tree)
+                isInTmux: context.isInTmux(pid: info.pid)
             )
         }
         .sorted { lhs, rhs in
